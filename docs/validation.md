@@ -1,4 +1,4 @@
-# Release validation — 1.1.0
+# Release validation — 1.2.0
 
 Date: 2026-09-20. Platform: Windows 11, Python 3.12.3, Intel Core i9-14900HX,
 32 logical processors, approximately 32 GiB RAM. The simulation and tests use CPU execution;
@@ -6,7 +6,7 @@ the installed RTX 4070 Laptop GPU is not required.
 
 ## Automated checks
 
-The release suite contains **126 passing tests**, including generated Hypothesis cases.
+The release suite contains **199 passing tests**, including generated Hypothesis cases.
 
 | Area | Verified behavior |
 |---|---|
@@ -24,6 +24,11 @@ The release suite contains **126 passing tests**, including generated Hypothesis
 | UI | Human input through the API, rejection feedback, pause/single step/restart/menu, draw purity |
 | Replay annotations | Detached finite JSON, atomic rejection, metadata-independent hashes, cutoff timing and outcome precedence |
 | Offscreen rendering | No window/input access, existing display preserved, fresh surfaces, RGB layout, scaling and clip restoration |
+| Demo generation | Streaming/prepared inputs, mid-game starts, exact cutoffs, default interruption, natural outcome precedence, malformed schedule rejection |
+| Compact files | JSON/gzip equivalence, deterministic bytes, incomplete/corrupt files, overwrite protection, concurrent destination creation, no leftover temporary files |
+| Live recording | Identical step results/events/entries/bytes at all five speeds; pause, single step, cancellation before and inside calls, caller errors |
+| Replay seeking | Linear-reference equivalence, generated seek sequences, entry boundaries, mid-entry targets, cache eviction, game identity, tamper detection |
+| Viewer transport | Bounded seeks, timeline dragging, seek after completion, shortcuts, operation feedback, speed transitions back to human play |
 
 The movement counterexamples test both original successful cases and cases in which two
 objects pass each other between tick samples. Fixes preserve the same collision boundaries;
@@ -49,7 +54,7 @@ or forced outcomes are used by the controller. Every trace is replayed and hash-
 | Standard | Won | 6,105 | 305.25 s | 40 / 40 | 3 |
 | Hard | Won | 8,526 | 426.30 s | 75 / 75 | 2 |
 
-For 1.1.0, regenerated traces under `artifacts/acceptance-v1.1.0/` match all three 1.0.0
+For 1.2.0, regenerated traces under `artifacts/acceptance-v1.2.0/` match all three 1.0.0
 fixtures exactly in final tick and hash. The engine, rules, preset configurations, and tracked
 fixtures are unchanged. Expected SHA-256 final state hashes:
 
@@ -66,29 +71,48 @@ policy, a human-similarity experiment, or evidence of performance on held-out se
 
 ## Performance
 
-Measured for 1.1.0 with `python tools/benchmark_suite.py`, without concurrent test/build
+Measured for 1.2.0 with `python tools/benchmark_suite.py`, without concurrent test/build
 workloads. Counts are simulation ticks; every tick
 exports a full detached observation. They are not frame rates or learner decision rates.
 
 | Workload | Ticks/s | Real-time multiple | Measurement |
 |---|---:|---:|---|
-| Standard preset, wait-only | 35,070.7 | 1,753.5× | 20,000 ticks; reset after completion |
-| Populated hard winning replay | 10,610.1 | 530.5× | 25,578 ticks; includes replay decoding and checkpoint hashes |
-| Crowded 200-zombie scenario | 1,160.6 | 58.0× | 4,000 ticks with 15 initial shooters; reset after completion |
+| Standard preset, wait-only | 33,198.8 | 1,659.9× | 20,000 ticks; reset after completion |
+| Populated hard winning replay | 7,614.0 | 380.7× | 25,578 ticks; includes decoding, hash checks, and seek-cache maintenance |
+| Crowded 200-zombie scenario | 1,085.8 | 54.3× | 4,000 ticks with 15 initial shooters; reset after completion |
 
 The standard preset exceeds the 2,000-tick/s target. The synthetic crowded case does not;
 it is outside the normal 75-total-zombie preset and documents scaling limits of the simple
 entity-loop implementation. Results are local measurements, not portable guarantees.
 
-Rendering a populated state into an SDL dummy surface measured 487.4 frames/s over 120
+Rendering a populated state into an SDL dummy surface measured 514.1 frames/s over 120
 frames. This excludes real monitor presentation, driver synchronization, and input latency;
 interactive play is capped at 60 FPS by default. Drawing did not change the game state hash.
 
-The shared offscreen renderer produced 1000×600 RGB24 frames at 136.1 frames/s over 120
+The shared offscreen renderer produced 1000×600 RGB24 frames at 143.8 frames/s over 120
 frames, including board/HUD drawing, scaling, and byte export. Both rendering measurements
 use warmed font caches and exclude video encoding. A separate fresh-process test uses an
 invalid SDL display driver and forbids window initialization/input calls, proving that
 offscreen rendering does not require the dummy display used by the interactive benchmark.
+
+## Demo size and seeking
+
+Measured with `python tools/benchmark_demos.py`. Each demo is generated from the original
+winning trace's supplied operations, using the same preset/seed and normal public actions.
+All final hashes and winning ticks match the table above. The generator verifies before
+publishing; the seek measurements also execute checksum checks.
+
+| Demo | Compressed bytes | Equivalent JSON bytes | Generation + verification | Cold seek to end | Cached seek mean / max |
+|---|---:|---:|---:|---:|---:|
+| Easy | 6,023 | 27,232 | 0.298 s | 0.274 s | 9.5 / 22.6 ms |
+| Standard | 7,383 | 44,350 | 0.844 s | 0.828 s | 14.3 / 34.5 ms |
+| Hard | 8,497 | 59,447 | 1.390 s | 1.273 s | 18.8 / 44.4 ms |
+
+Cached measurements use 100 reproducible target ticks after the initial full traversal.
+The in-memory cache is limited to the initial snapshot plus 64 entries. Timing includes
+snapshot restoration and re-simulation, not input latency or display presentation. No seek
+snapshots or rendered frames are added to demo files. Populated replay now maintains this
+cache, so its workload includes more work than the 1.1.0 replay benchmark.
 
 ## Installation and visual checks
 
@@ -103,6 +127,9 @@ offscreen rendering does not require the dummy display used by the interactive b
   The verified engine status remains running, with an unchanged final simulation hash.
 - Verified the separate research project uses its own installed engine copy. Its installation
   and original source pin remain unchanged; adoption of this release requires both to update.
+- Generated a compact sample through the TOML CLI, verified it, and exported its final frame.
+- Rendered and visually inspected live, seeking, playback, and completed demo transport screens
+  with `python tools/preview_demos.py`; the timeline remains visible and usable after completion.
 
 Generated benchmark JSON and visual previews are local artifacts, excluded from source
 control. The reproducible tests, scenario data, and intentional acceptance fixtures are tracked.
@@ -112,7 +139,7 @@ control. The reproducible tests, scenario data, and intentional acceptance fixtu
 Only Windows/Python 3.12.3 was exercised. Real cross-platform replay agreement is unverified.
 Interactive behavior is checked through pygame event tests and rendered frames; a lengthy
 human usability study has not been performed. There is no learning system or measured RL
-performance in this release. Package 1.1.0 deliberately retains engine version 1.0.0 and schema
-version 1, so existing 1.0.0 snapshots/replays remain compatible. Migration across incompatible
+performance in this release. Package 1.2.0 deliberately retains engine version 1.0.0 and schema
+version 1, so existing 1.0.0/1.1.0 snapshots/replays remain compatible. Migration across incompatible
 engine/schema versions is not provided. Replay annotations are caller-supplied and are not
 authenticated by simulation hashes. Rendering requires the optional pygame-ce dependency.

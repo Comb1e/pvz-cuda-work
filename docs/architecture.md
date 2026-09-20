@@ -8,6 +8,13 @@ flowchart LR
     Human[Mouse and keyboard] --> UI[Interactive controller]
     UI --> API[Game API]
     External[External Python project] --> API
+    External --> Demo[Demo session]
+    Script[TOML or scheduled operations] --> Generate[Demo generator]
+    Generate --> Demo
+    Demo --> Recorder
+    Demo --> API
+    Demo --> Live[Live preview]
+    Live --> Renderer
     Replay[Replay playback] --> API
     Rules[TOML rules and scenarios] --> Engine[20 Hz engine]
     API --> Engine
@@ -18,7 +25,7 @@ flowchart LR
     View --> External
     Engine --> Snapshot[Complete JSON snapshot]
     UI --> Recorder[Action recorder]
-    Recorder --> File[Replay JSON with hashes]
+    Recorder --> File[JSON or compressed demo with hashes]
     File --> Replay
     File --> Metadata[Optional replay annotations]
     Metadata --> Context[Explicit presentation context]
@@ -33,10 +40,31 @@ flowchart LR
 | `types` | Frozen actions, events, observations, outcomes, and API versions |
 | `engine` | Own all mutable entities, timers, resources, RNG, and game outcomes |
 | `replay` | Record actions, verify state hashes, and carry detached external annotations |
+| `demo` | Validate scheduled actions, record submitted calls, finalize external outcomes and atomic files |
+| `demo_ui` | Pace live session ticks, process preview input, and render public observations |
 | `art` | Original plant/zombie primitives and shared drawing helpers; palette/labels in `theme.toml` |
 | `rendering` | Draw a public observation and explicit presentation options into a Surface or RGB bytes |
 | `ui` | Map input to actions, pace simulation, call the shared renderer, and manage screens |
 | `cli` | Launch games, verify/watch replays, export final frames, and measure headless execution |
+
+`DemoSession` wraps a reset Game and one Recorder. Recorder's internal presentation hooks
+allow the live preview to run between fixed ticks while retaining one entry per submitted
+call. Headless calls retain the fast batched engine path. Both paths return equivalent events,
+action results, observations, and hashes. The session verifies its complete recording before
+publishing it atomically. A cancelled call records only its completed ticks.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Recording
+    Recording --> Finalizing: finish, context exit, error, or window close
+    Finalizing --> Closed: Verify and publish completed operations
+    Closed --> Closed: Repeated finish returns same result
+```
+
+The generator fills gaps between scheduled operations with waits. It stops on a natural
+outcome or an explicit cutoff; it uses the same session for recording and optional live
+preview. Live pause stops requested ticks without changing the Game status. The caller owns
+execution between streaming calls; live preview does not start a worker thread.
 
 The core uses Python's standard library. pygame is imported only by the UI and rendering
 tools. The external research project owns observation encoding, rewards, action masks in
@@ -131,6 +159,26 @@ stateDiagram-v2
 | Lawn mower | Ready → Moving → Spent |
 | Interactive screen | Menu → Playing ↔ Paused → Ended; restart or return to menu |
 
+```mermaid
+stateDiagram-v2
+    Playing --> Paused: Pause
+    Paused --> Playing: Resume
+    Playing --> Seeking: Timeline or seek key
+    Paused --> Seeking: Timeline or seek key
+    Ended --> Seeking: Timeline or seek key
+    Seeking --> Playing: Target reached, previously playing
+    Seeking --> Paused: Target reached, previously paused or ended
+    Playing --> Ended: Verified recording end
+    Seeking --> Ended: Target is recording end
+```
+
+Seeking restores the nearest usable in-memory snapshot and replay cursor, then advances
+through the same Playback step implementation. The UI consumes bounded chunks between input
+frames. The initial snapshot plus at most 64 recent snapshots are retained, spaced every 200
+ticks. Cache entries include the latest operation for correct feedback after rewinding.
+Snapshots restore the existing Game instance; references held by a controller remain valid.
+Seek caches and transient rendering effects are never serialized into demo files.
+
 Detonation and removal can occur in the same tick; events make that transition observable.
 Pause belongs to the UI. It stops asking the engine to advance. A frame accumulator keeps
 unprocessed time rather than skipping simulation ticks when rendering is slow.
@@ -162,7 +210,7 @@ presentation context explicitly and decide when an external cutoff applies. Neit
 changes the engine's Running/Won/Lost state machine.
 
 Schema and engine versions are explicit. Package releases can share a simulation compatibility
-identifier when rules and state semantics are unchanged: package 1.1.0 uses engine 1.0.0 and
+identifier when rules and state semantics are unchanged: package 1.2.0 uses engine 1.0.0 and
 schema version 1. There is no migration across incompatible snapshot versions.
 Platform-independent integer rules are used, but cross-platform determinism has not yet
 been experimentally verified; the tested environment is Python 3.12.3 on Windows 11.

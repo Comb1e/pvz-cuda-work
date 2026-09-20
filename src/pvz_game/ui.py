@@ -15,9 +15,9 @@ from . import Game, LevelSpec, Place, Rules, Status, Wait, WaveSpec
 from .art import BG, CREAM, GREEN, LABELS, MUTED, PANEL, YELLOW, Painter
 from .art import plant_art as plant_art
 from .art import zombie_art as zombie_art
-from .config import PLANT_TYPES
+from .config import PLANT_TYPES, bundled
 from .rendering import BoardRenderer, RenderContext, RenderOptions
-from .replay import Playback, Recorder
+from .replay import Playback, Recorder, operation_text, validate_speed
 from .types import Dig
 
 
@@ -26,6 +26,7 @@ class Screen(StrEnum):
     PLAYING = "playing"
     PAUSED = "paused"
     ENDED = "ended"
+    SEEKING = "seeking"
 
 
 class App(Painter):
@@ -37,7 +38,9 @@ class App(Painter):
         record_path: Path | None = None,
         replay_path: Path | None = None,
         ui_config: Path | None = None,
+        speed: float = 1,
     ):
+        validate_speed(speed)
         self.renderer = BoardRenderer(ui_config=ui_config)
         config = self.renderer.cfg
         self.cfg = config
@@ -56,7 +59,13 @@ class App(Painter):
         self.mode = Screen.MENU
         self.selected: str | None = None
         self.inspect = False
-        self.speed = 1
+        self.speed = speed
+        self.demo_settings = bundled("demo.toml")
+        self._seek_work = None
+        self._seek_resume = Screen.PAUSED
+        self._seek_target = None
+        self._dragging = False
+        self._drag_resume = Screen.PAUSED
         self.accumulator = 0.0
         self.pending = deque()
         self.effects: list[tuple[int, int, int, int]] = []
@@ -80,6 +89,8 @@ class App(Painter):
 
     def start(self, level):
         self._autosave()
+        if self.speed not in (1, 2, 4):
+            self.speed = 1
         self.level = level
         self.game.reset(level, self.seed)
         self.recorder = Recorder(self.game)
@@ -125,6 +136,8 @@ class App(Painter):
         if event.type == pygame.QUIT:
             self.running = False
             return
+        if self.playback and self._timeline_event(event):
+            return
         if event.type == pygame.KEYDOWN:
             if self.mode == Screen.MENU:
                 if event.key == pygame.K_BACKSPACE:
@@ -134,6 +147,22 @@ class App(Painter):
                 elif event.key == pygame.K_RETURN:
                     self.seed = int(self.seed_text or "0")
                     self.start("standard")
+                return
+            if self.playback and event.key in (
+                pygame.K_LEFT,
+                pygame.K_RIGHT,
+                pygame.K_HOME,
+                pygame.K_END,
+            ):
+                playback = self.playback
+                origin = self._seek_target if self.mode == Screen.SEEKING else playback.current_tick
+                target = {
+                    pygame.K_LEFT: origin - 5 * self.game.observe().tick_rate,
+                    pygame.K_RIGHT: origin + 5 * self.game.observe().tick_rate,
+                    pygame.K_HOME: playback.start_tick,
+                    pygame.K_END: playback.end_tick,
+                }[event.key]
+                self.request_seek(max(playback.start_tick, min(target, playback.end_tick)))
                 return
             if event.key in (pygame.K_ESCAPE, pygame.K_SPACE):
                 if event.key == pygame.K_ESCAPE and self.selected:
@@ -184,7 +213,8 @@ class App(Painter):
         elif name == "pause":
             self.toggle_pause()
         elif name == "speed":
-            self.speed = {1: 2, 2: 4, 4: 1}[self.speed]
+            speeds = self.demo_settings["speeds"] if self.playback else [1, 2, 4]
+            self.speed = speeds[(speeds.index(self.speed) + 1) % len(speeds)]
         elif name == "inspect":
             self.inspect = not self.inspect
         elif name == "step" and self.mode == Screen.PAUSED:
@@ -196,26 +226,106 @@ class App(Painter):
         elif name == "menu":
             self._autosave()
             self.playback = None
+            self._seek_work = None
+            self._dragging = False
             self.recorder = None
             self.mode = Screen.MENU
             self.pending.clear()
 
     def restart(self):
         if self.playback:
-            self.playback = Playback(self.replay_path)
-            self.game = self.playback.game
+            self._seek_work = None
+            self._dragging = False
+            self.playback.seek(self.playback.start_tick)
             self.mode = Screen.ENDED if self.playback.done else Screen.PLAYING
             self.accumulator = 0
+            self.effects.clear()
+            self.sun_flash_until = 0
+            self.message = operation_text(self.playback.last_operation)
         else:
             self.start(self.level)
 
     def toggle_pause(self):
+        if self._dragging:
+            return  # A held timeline drag always stays paused until mouse release.
+        if self.mode == Screen.SEEKING:
+            self._seek_resume = (
+                Screen.PAUSED if self._seek_resume == Screen.PLAYING else Screen.PLAYING
+            )
         if self.mode == Screen.PLAYING:
             self.mode = Screen.PAUSED
             self.pending.clear()
         elif self.mode == Screen.PAUSED:
             self.mode = Screen.PLAYING
         self.accumulator = 0
+
+    def timeline_rect(self):
+        return pygame.Rect(64, 783, 880, 12)
+
+    def _timeline_tick(self, x):
+        rect = self.timeline_rect()
+        fraction = max(0, min(1, (x - rect.left) / rect.width))
+        return self.playback.start_tick + round(
+            fraction * (self.playback.end_tick - self.playback.start_tick)
+        )
+
+    def _timeline_event(self, event):
+        if (
+            event.type == pygame.MOUSEBUTTONDOWN
+            and event.button == 1
+            and self.timeline_rect().inflate(0, 18).collidepoint(event.pos)
+        ):
+            self._dragging = True
+            self._drag_resume = self._seek_resume if self.mode == Screen.SEEKING else self.mode
+            if self._drag_resume != Screen.PLAYING:
+                self._drag_resume = Screen.PAUSED
+            self.request_seek(self._timeline_tick(event.pos[0]), resume=Screen.PAUSED)
+            return True
+        if self._dragging and event.type == pygame.MOUSEMOTION:
+            self.request_seek(self._timeline_tick(event.pos[0]), resume=Screen.PAUSED)
+            return True
+        if self._dragging and event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            self._dragging = False
+            self.request_seek(self._timeline_tick(event.pos[0]), resume=self._drag_resume)
+            return True
+        return False
+
+    def request_seek(self, tick, *, resume=None):
+        if resume is None:
+            resume = self._seek_resume if self.mode == Screen.SEEKING else self.mode
+        self._seek_resume = Screen.PLAYING if resume == Screen.PLAYING else Screen.PAUSED
+        self._seek_work = self.playback.seek_steps(tick)
+        self._seek_target = tick
+        self.mode = Screen.SEEKING
+        self.accumulator = 0
+        self.effects.clear()
+        self.sun_flash_until = 0
+
+    def _process_seek(self):
+        for _ in range(self.demo_settings["seek_chunk_ticks"]):
+            try:
+                next(self._seek_work)
+            except StopIteration:
+                self._seek_work = None
+                self.mode = Screen.ENDED if self.playback.done else self._seek_resume
+                break
+        self.message = operation_text(self.playback.last_operation)
+
+    def update(self, elapsed):
+        if self.mode == Screen.SEEKING:
+            self._process_seek()
+        elif self.mode == Screen.PLAYING:
+            self.accumulator += elapsed * self.speed
+            interval = 1 / self.game.observe().tick_rate
+            count = 0
+            while (
+                self.accumulator >= interval
+                and count < self.demo_settings["seek_chunk_ticks"]
+                and self.mode == Screen.PLAYING
+            ):
+                self.advance()
+                self.accumulator -= interval
+                count += 1
 
     def advance(self):
         if self.game.observe().status != Status.RUNNING:
@@ -226,9 +336,9 @@ class App(Painter):
                 self.mode = Screen.ENDED
                 return
             result = self.playback.step()
+            self.message = operation_text(self.playback.last_operation)
             if self.playback.done:
                 self.mode = Screen.ENDED
-                self.message = "Replay verified. Every recorded state matched."
         else:
             action = self.pending.popleft() if self.pending else Wait()
             result = self.recorder.step(action)
@@ -299,7 +409,7 @@ class App(Painter):
             obs,
             self.surface,
             context=RenderContext(
-                policy_id=metadata.get("policy_id"),
+                policy_id=None if self.playback else metadata.get("policy_id"),
                 outcome=outcome,
                 termination_reason=metadata.get("termination_reason"),
                 message=self.message,
@@ -319,12 +429,17 @@ class App(Painter):
             "card:" + card.plant_type: self.renderer.card_rect(i)
             for i, card in enumerate(obs.cards)
         }
-        self.button("shovel", "Shovel [S]", (978, 105, 129, 42), self.selected == "shovel")
+        self.button(
+            "restart" if self.playback else "shovel",
+            "Restart [R]" if self.playback else "Shovel [S]",
+            (978, 105, 129, 42),
+            self.selected == "shovel",
+        )
         self.button("inspect", "Inspect [I]", (1115, 105, 129, 42), self.inspect)
         self.button(
             "pause", "Resume" if self.mode == Screen.PAUSED else "Pause", (978, 158, 129, 42)
         )
-        self.button("speed", f"Speed {self.speed}x", (1115, 158, 129, 42))
+        self.button("speed", f"Speed {self.speed:g}x", (1115, 158, 129, 42))
         if not self.playback:
             self.text(
                 "1–8 select   ·   Click plant   ·   Right-click cancel   ·   Space pause"
@@ -336,8 +451,59 @@ class App(Painter):
             )
         if self.mode in (Screen.PAUSED, Screen.ENDED):
             self._draw_modal(obs)
+        if self.playback:
+            self._draw_timeline(obs)
+
+    def _draw_timeline(self, obs):
+        playback = self.playback
+        duration = playback.end_tick - playback.start_tick
+        elapsed = playback.current_tick - playback.start_tick
+        rect = self.timeline_rect()
+        pygame.draw.rect(self.surface, (64, 85, 64), rect, border_radius=6)
+        x = rect.x + round(rect.width * elapsed / duration) if duration else rect.x
+        pygame.draw.rect(
+            self.surface, GREEN, (rect.x, rect.y, x - rect.x, rect.height), border_radius=6
+        )
+        pygame.draw.circle(self.surface, CREAM, (x, rect.centery), 8)
+        label = f"{elapsed / obs.tick_rate:.1f}s / {duration / obs.tick_rate:.1f}s   |   {self.speed:g}x"
+        if self.mode == Screen.SEEKING:
+            self.text(f"Seeking tick {self._seek_target}", 988, 726, 13, GREEN)
+        self.text(label, 64, 758, 13, GREEN)
+        self.text(
+            "Drag to seek  /  Left, Right: 5s  /  Home, End  /  Space pause  /  . tick",
+            370,
+            758,
+            13,
+            MUTED,
+        )
+        self.text("REPLAY", 988, 751, 15, GREEN)
+        title = playback.metadata.get(
+            "title", playback.metadata.get("policy_id", "Operation recording")
+        )
+        self.text(str(title)[:28], 988, 779, 13, MUTED)
 
     def _draw_modal(self, obs):
+        if self.playback:
+            paused = self.mode == Screen.PAUSED
+            outcome = self.playback.display_outcome
+            heading = (
+                "Replay paused"
+                if paused
+                else "Replay " + ("complete" if outcome == "running" else outcome)
+            )
+            subtitle = (
+                "Space to resume / . advances one tick"
+                if paused
+                else (
+                    self.playback.metadata.get("termination_reason", "Recording verified")
+                    if outcome in ("truncated", "interrupted")
+                    else "Recording verified / seek to watch again"
+                )
+            )
+            self.panel((410, 387, 460, 112), BG, border=GREEN)
+            self.text(heading, 640, 398, 30, CREAM, True)
+            self.text(subtitle.replace("_", " ")[:54], 640, 447, 15, MUTED, True)
+            return
         veil = pygame.Surface(self.surface.get_size(), pygame.SRCALPHA)
         veil.fill((9, 23, 20, 185))
         self.surface.blit(veil, (0, 0))
@@ -384,14 +550,7 @@ class App(Painter):
                 elapsed = self.clock.tick(self.cfg["fps"]) / 1000
                 for event in pygame.event.get():
                     self.handle_event(event)
-                if self.mode == Screen.PLAYING:
-                    self.accumulator += elapsed * self.speed
-                    # Limit work per frame while retaining the backlog; never discard ticks.
-                    count = 0
-                    while self.accumulator >= 1 / 20 and count < 80 and self.mode == Screen.PLAYING:
-                        self.advance()
-                        self.accumulator -= 1 / 20
-                        count += 1
+                self.update(elapsed)
                 self.draw()
                 pygame.display.flip()
         finally:

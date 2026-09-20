@@ -3,9 +3,12 @@
 Install `pvz-research-game` into the calling environment. The import name is `pvz_game`.
 The core requires Python 3.12+ and no third-party runtime package.
 
-Package release `1.1.0` adds presentation and replay annotations. `PACKAGE_VERSION` identifies
+Package release `1.2.0` adds compact operation demos, live recording, and seeking. `PACKAGE_VERSION` identifies
 the package release; `ENGINE_VERSION = "1.0.0"` identifies compatible simulation state.
 Observation, snapshot, and replay schemas remain version 1. Existing hashes remain valid.
+
+See [the demo interface](demos.md) for `DemoSession`, parameterized `generate_demo`, TOML
+scripts, compressed recordings, and the replay timeline. The game lifecycle below is unchanged.
 
 ## Game lifecycle
 
@@ -278,6 +281,6 @@ the presentation says `TRUNCATED`.
 Source-pinned consumers must adopt the new package's Git commit and source manifest even
 though its simulation compatibility identifier remains `1.0.0`. Run
 `python tools/export_engine_pin.py` after committing the source to generate
-`dist/engine-lock-1.1.0.json`. The file contains the commit, package/simulation versions,
+`dist/engine-lock-1.2.0.json`. The file contains the commit, package/simulation versions,
 rules hash, and SHA-256 hashes of every installed Python/TOML file, normalizing CRLF to LF.
 Existing research installations and their pinned manifests are not automatically changed.

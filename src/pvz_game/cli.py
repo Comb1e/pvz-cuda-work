@@ -9,6 +9,7 @@ from pathlib import Path
 from time import perf_counter
 
 from . import Game, Rules, Status, load_scenario
+from .config import bundled
 
 
 def benchmark(level: str, seed: int, ticks: int) -> dict:
@@ -47,11 +48,19 @@ def main(argv: list[str] | None = None) -> int:
     play.add_argument("--record", type=Path, help="save a replay when leaving the game")
     replay = commands.add_parser("replay", help="verify or watch a recorded game")
     replay.add_argument("path", type=Path)
+    speeds = bundled("demo.toml")["speeds"]
+    replay.add_argument("--speed", type=float, choices=speeds)
     display = replay.add_mutually_exclusive_group()
     display.add_argument("--watch", action="store_true")
     display.add_argument(
         "--frame", type=Path, help="save the verified final frame without a window"
     )
+    demo = commands.add_parser("demo", help="generate a compact operation demo from a TOML script")
+    demo.add_argument("--script", type=Path, required=True)
+    demo.add_argument("--output", type=Path, required=True)
+    demo.add_argument("--live", action="store_true")
+    demo.add_argument("--speed", type=float, choices=speeds, default=1)
+    demo.add_argument("--overwrite", action="store_true")
     bench = commands.add_parser("benchmark", help="measure headless simulation and state export")
     bench.add_argument("--level", choices=("easy", "standard", "hard"), default="standard")
     bench.add_argument("--seed", type=int, default=42)
@@ -73,13 +82,38 @@ def main(argv: list[str] | None = None) -> int:
                 record_path=args.record,
                 ui_config=args.ui_config,
             ).run()
+        elif args.command == "demo":
+            from .demo import generate_demo, load_demo_script
+
+            result = generate_demo(
+                **load_demo_script(args.script),
+                output=args.output,
+                live=args.live,
+                speed=args.speed,
+                overwrite=args.overwrite,
+            )
+            print(
+                json.dumps(
+                    {
+                        "path": str(result.path),
+                        "status": result.observation.status.value,
+                        "outcome": result.outcome,
+                        "tick": result.observation.tick,
+                        "ticks_recorded": result.ticks_recorded,
+                        "hash": result.final_hash,
+                    },
+                    indent=2,
+                )
+            )
         elif args.command == "replay":
             from .replay import Playback
 
+            if args.speed is not None and not args.watch:
+                parser.error("--speed requires --watch")
             if args.watch:
                 from .ui import App
 
-                App(replay_path=args.path).run()
+                App(replay_path=args.path, speed=args.speed or 1).run()
             else:
                 playback = Playback(args.path)
                 game = playback.verify()
@@ -120,6 +154,6 @@ def main(argv: list[str] | None = None) -> int:
         if exc.name == "pygame":
             parser.exit(2, 'Install the UI with: python -m pip install ".[ui]"\n')
         raise
-    except (ValueError, OSError, RuntimeError) as exc:
+    except (ValueError, OSError, RuntimeError, TypeError, KeyError) as exc:
         parser.exit(2, f"pvz: {exc}\n")
     return 0

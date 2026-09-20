@@ -3,15 +3,84 @@
 from __future__ import annotations
 
 import copy
+import gzip
 import json
-from dataclasses import asdict
+import os
+import tempfile
+import zlib
+from collections import OrderedDict
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
-from .config import Rules, integer
+from .config import Rules, bundled, integer
 from .engine import Game
-from .types import Action, Dig, Place, Status, StepResult, Wait
+from .types import Action, ActionResult, Dig, GameFinishedError, Place, Status, StepResult, Wait
 
 REPLAY_VERSION = 1
+
+
+def validate_speed(speed):
+    speeds = bundled("demo.toml")["speeds"]
+    if type(speed) not in (int, float) or speed not in speeds:
+        raise ValueError("speed must be one of " + ", ".join(map(str, speeds)))
+    return speed
+
+
+def read_recording(source: dict | str | Path) -> dict:
+    if isinstance(source, dict):
+        return copy.deepcopy(source)
+    try:
+        payload = Path(source).read_bytes()
+        if payload.startswith(b"\x1f\x8b"):
+            payload = gzip.decompress(payload)
+        data = json.loads(payload)
+    except (EOFError, UnicodeError, json.JSONDecodeError, zlib.error) as exc:
+        raise ValueError("invalid or incomplete replay file") from exc
+    if not isinstance(data, dict):
+        raise ValueError("replay must contain a JSON object")
+    return data
+
+
+def write_recording(data: dict, path: str | Path, *, overwrite: bool = True):
+    """Atomically publish JSON or a compressed demo; never expose a partial file."""
+    path = Path(path)
+    if not overwrite and path.exists():
+        raise FileExistsError(path)
+    payload = (json.dumps(data, separators=(",", ":"), allow_nan=False) + "\n").encode("utf-8")
+    if path.suffix.lower() == ".pvzdemo" or path.name.lower().endswith(".json.gz"):
+        payload = gzip.compress(payload, mtime=0)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=path.parent, prefix=".pvz-", delete=False) as stream:
+            temporary = Path(stream.name)
+            stream.write(payload)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if overwrite:
+            os.replace(temporary, path)
+        else:
+            # An atomic exclusive publish also protects against a file created during recording.
+            os.link(temporary, path)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+@dataclass(frozen=True, slots=True)
+class RecordedOperation:
+    tick: int
+    action: Action
+    result: ActionResult
+
+
+def operation_text(operation: RecordedOperation | None) -> str:
+    if operation is None:
+        return "No placement or digging operation yet."
+    action = operation.action
+    label = f"Place {action.plant_type.replace('_', ' ')}" if isinstance(action, Place) else "Dig"
+    verdict = "accepted" if operation.result.accepted else operation.result.reason.replace("_", " ")
+    return f"Tick {operation.tick}  /  {label} at ({action.row}, {action.col})  /  {verdict}"
 
 
 def _metadata_copy(metadata: dict | None) -> dict:
@@ -94,13 +163,47 @@ class Recorder:
         self._metadata = _metadata_copy({**self._metadata, **update})
 
     def step(self, action: Action = Wait(), *, ticks: int = 1) -> StepResult:
+        return self._step(action, ticks=ticks)
+
+    def _step(self, action, *, ticks, before_tick=None, after_tick=None):
+        """Internal presentation hooks; one record per call, including completed partial calls."""
+        integer(ticks, "ticks", 1)
+        self.game.validate_action(action)
+        if self.game.observe().status != Status.RUNNING:
+            raise GameFinishedError("reset before stepping a completed game")
         tick = self.game.observe().tick
-        result = self.game.step(action, ticks=ticks)
-        entry = {"tick": tick, "action": action_dict(action), "ticks": result.ticks_advanced}
+        advanced = 0
+        try:
+            if before_tick is None and after_tick is None:
+                result = self.game.step(action, ticks=ticks)
+                advanced = result.ticks_advanced
+                return result
+            events = []
+            first = None
+            for offset in range(ticks):
+                if before_tick:
+                    before_tick()
+                submitted = action if offset == 0 else Wait()
+                result = self.game.step(submitted)
+                advanced += result.ticks_advanced
+                first = first or result
+                events.extend(result.events)
+                if after_tick:
+                    after_tick(result, submitted)
+                if result.status != Status.RUNNING:
+                    break
+            return StepResult(
+                result.observation, first.action_result, tuple(events), result.status, advanced
+            )
+        finally:
+            if advanced:
+                self._append(tick, action, advanced)
+
+    def _append(self, tick, action, ticks):
+        entry = {"tick": tick, "action": action_dict(action), "ticks": ticks}
         if (len(self.entries) + 1) % self.hash_interval == 0:
             entry["state_hash"] = self.game.state_hash()
         self.entries.append(entry)
-        return result
 
     def to_dict(self) -> dict:
         data = {
@@ -114,23 +217,15 @@ class Recorder:
             data["metadata"] = self.metadata
         return data
 
-    def save(self, path: str | Path):
-        path = Path(path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            json.dumps(self.to_dict(), separators=(",", ":")) + "\n", "utf-8", newline="\n"
-        )
+    def save(self, path: str | Path, *, overwrite: bool = True):
+        write_recording(self.to_dict(), path, overwrite=overwrite)
 
 
 class Playback:
     """Reproduce a recording one simulation tick at a time, checking each checkpoint."""
 
     def __init__(self, source: dict | str | Path):
-        data = (
-            copy.deepcopy(source)
-            if isinstance(source, dict)
-            else json.loads(Path(source).read_text("utf-8"))
-        )
+        data = read_recording(source)
         if data.get("replay_version") != REPLAY_VERSION:
             raise ValueError("incompatible replay version")
         self._metadata = _metadata_copy(data.get("metadata"))
@@ -140,8 +235,62 @@ class Playback:
         self.index = 0
         self.offset = 0
         self.done = False
+        self.last_operation = None
+        settings = bundled("demo.toml")
+        self._cache_interval = settings["cache_interval_ticks"]
+        self._cache_limit = settings["cache_limit"]
+        self._cache = OrderedDict()
+        self._start_tick = self.game.observe().tick
+        end = self._start_tick
+        for entry in data["entries"]:
+            integer(entry["tick"], "replay tick")
+            integer(entry["ticks"], "replay ticks", 1)
+            if entry["tick"] != end:
+                raise ValueError("replay tick mismatch")
+            self.game.validate_action(decode_action(entry["action"]))
+            end += entry["ticks"]
+        self._end_tick = end
         if not data["entries"]:
             self._finish()
+        self._initial_cursor = self._checkpoint()
+
+    @property
+    def start_tick(self) -> int:
+        return self._start_tick
+
+    @property
+    def end_tick(self) -> int:
+        return self._end_tick
+
+    @property
+    def current_tick(self) -> int:
+        return self.game.observe().tick
+
+    def _checkpoint(self):
+        return (self.game.snapshot(), self.index, self.offset, self.done, self.last_operation)
+
+    def seek(self, tick: int):
+        """Synchronously seek to an absolute simulation tick; preserve game identity."""
+        for _ in self.seek_steps(tick):
+            pass
+        return self.game.observe()
+
+    def seek_steps(self, tick: int):
+        """Yield after each simulated tick so interactive seeking can stay responsive."""
+        integer(tick, "seek tick")
+        if not self.start_tick <= tick <= self.end_tick:
+            raise ValueError("seek tick outside recording")
+        return self._seek_steps(tick)
+
+    def _seek_steps(self, tick):
+        candidates = [t for t in self._cache if t <= tick]
+        closest = max(candidates, default=self.start_tick)
+        if not closest <= self.current_tick <= tick:
+            saved = self._cache.get(closest, self._initial_cursor)
+            snapshot, self.index, self.offset, self.done, self.last_operation = saved
+            self.game.restore(snapshot)
+        while self.current_tick < tick:
+            yield self.step()
 
     @property
     def metadata(self) -> dict:
@@ -169,6 +318,8 @@ class Playback:
             raise ValueError(f"replay tick mismatch at entry {self.index}")
         action = decode_action(entry["action"]) if self.offset == 0 else Wait()
         result = self.game.step(action)
+        if isinstance(action, (Place, Dig)):
+            self.last_operation = RecordedOperation(entry["tick"], action, result.action_result)
         self.offset += 1
         if self.offset == entry["ticks"]:
             if "state_hash" in entry and self.game.state_hash() != entry["state_hash"]:
@@ -177,6 +328,11 @@ class Playback:
             self.offset = 0
             if self.index == len(self.data["entries"]):
                 self._finish()
+        if (self.current_tick - self.start_tick) % self._cache_interval == 0:
+            self._cache[self.current_tick] = self._checkpoint()
+            self._cache.move_to_end(self.current_tick)
+            while len(self._cache) > self._cache_limit:
+                self._cache.popitem(last=False)
         return result
 
     def verify(self) -> Game:

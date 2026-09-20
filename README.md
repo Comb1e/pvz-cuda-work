@@ -8,8 +8,8 @@ Eight plants, five zombies, three scenarios, automatic sun collection, exact rem
 zombie counts, snapshots, and verified action replays are included. Training algorithms,
 rewards, tensor observations, and learning-framework wrappers belong to your external project.
 
-Version 1.1.0 adds optional replay provenance and external cutoff labels, plus a shared
-offscreen board/HUD renderer. Simulation rules and existing replay hashes are preserved.
+Version 1.2.0 adds compact operation demos, optional live recording, and a seekable replay
+timeline with speeds from 0.5× to 8×. Simulation rules and existing replay hashes are preserved.
 
 ## Play
 
@@ -108,6 +108,9 @@ timing, armor, special behavior, and the intentional differences from the origin
 ## Replays and checks
 
 ```powershell
+pvz demo --script examples/demo.toml --output demos/sample.pvzdemo
+pvz demo --script examples/demo.toml --output demos/live.pvzdemo --live --speed 4
+pvz replay demos/sample.pvzdemo --watch --speed 2
 pvz play --level standard --seed 42 --record recordings/my-game.json
 pvz replay recordings/my-game.json
 pvz replay recordings/my-game.json --watch
@@ -124,16 +127,21 @@ Replay verification checks tick indices, periodic state hashes, and the final st
 Snapshots and replays require the same engine/schema versions; snapshots also require
 identical rules. Replay files embed their resolved rules and spawn schedule.
 
+The [demo API guide](docs/demos.md) covers parameterized generation and recording operations
+from an existing program through `DemoSession`. Demos store compressed operations and render
+while watching. The timeline supports dragging, Left/Right five-second seeks, Home/End,
+pause, and single-tick stepping. Add `--overwrite` only to intentionally replace a demo.
+
 Recorders accept optional JSON metadata such as `policy_id`, `checkpoint_sha256`,
 `outcome="truncated"`, and `termination_reason="time_limit"`. These annotations stay outside
 observations and simulation hashes. The underlying game status remains `running` when an
 external controller stops it. See [the metadata and rendering API](docs/api.md) and
 [the offscreen example](examples/offscreen_replay.py) for Surface and RGB24 output.
 
-`PACKAGE_VERSION` is `1.1.0`; the simulation compatibility identifier `ENGINE_VERSION`
+`PACKAGE_VERSION` is `1.2.0`; the simulation compatibility identifier `ENGINE_VERSION`
 remains `1.0.0`. Source-pinned consumers still need the new commit and file manifest.
 After committing source changes, `python tools/export_engine_pin.py` writes
-`dist/engine-lock-1.1.0.json` for adoption alongside the new package installation.
+`dist/engine-lock-1.2.0.json` for adoption alongside the new package installation.
 
 All three presets include a winning seed-42 replay in `tests/fixtures/`. The small scripted
 controller in `tools/record_playthroughs.py` exists to generate these acceptance fixtures;

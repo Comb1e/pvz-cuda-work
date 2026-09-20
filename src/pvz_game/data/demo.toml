@@ -1,0 +1,7 @@
+# Presentation/recording defaults; never part of simulation state.
+speeds = [0.5, 1, 2, 4, 8]
+cache_interval_ticks = 200
+cache_limit = 64
+seek_chunk_ticks = 200
+hash_interval_steps = 100
+generation_batch_ticks = 200

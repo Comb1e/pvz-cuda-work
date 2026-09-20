@@ -1,0 +1,28 @@
+[demo]
+level = "standard"
+seed = 42
+max_ticks = 1200
+
+[metadata]
+title = "A short garden demonstration"
+
+[[actions]]
+tick = 0
+kind = "place"
+plant_type = "sunflower"
+row = 2
+col = 0
+
+[[actions]]
+tick = 200
+kind = "place"
+plant_type = "sunflower"
+row = 1
+col = 0
+
+[[actions]]
+tick = 600
+kind = "place"
+plant_type = "peashooter"
+row = 2
+col = 2
