@@ -1,5 +1,54 @@
 # Iteration history
 
+## 1.1.0 — 2026-09-20
+
+### Previous state and issues
+
+Raw replays did not identify a controller checkpoint or explain why an external research
+wrapper stopped a still-running game. External video tools had to provide their own board
+and HUD drawing to avoid the interactive application's display window.
+
+### Root causes
+
+- Replay records described simulation state only; external cutoff/provenance annotations
+  had no documented place in the file.
+- Board and HUD drawing lived inside the interactive controller and read its input state.
+
+### Improvements
+
+- Added optional detached JSON metadata to Recorder and Playback, with atomic updates and
+  conventional policy/checkpoint/outcome/reason fields. Simulation hashes exclude metadata.
+- Added explicit outcome resolution: real wins/losses take precedence; external truncation
+  or interruption applies only after playback reaches its verified end.
+- Extracted original art and one board/HUD renderer shared by interactive and offscreen use.
+  Offscreen output supports fresh Surfaces, RGB24 bytes, and aspect-preserving output sizes.
+- Added explicit context/options instead of reading input devices while drawing. Moved the
+  common palette and labels into TOML. Kept legacy art imports working.
+- Added verified replay frame export, a standalone offscreen example, and a source pin tool.
+- Kept engine compatibility version 1.0.0 and schema version 1; package release is 1.1.0.
+
+### Verification results
+
+- 126 tests pass, including existing action/legality/observation tests and new metadata,
+  cutoff precedence, malformed JSON, display isolation, RGB layout, and clipping checks.
+- Regenerated all three seed-42 acceptance runs outside the fixtures: winning ticks and
+  full state hashes match 1.0.0 exactly. No engine, balance, level, or fixture edits.
+- Offscreen rendering works in a fresh process with an invalid display driver and fails
+  the test if it calls display initialization, window creation, or input access.
+- Interactive and truncated offscreen frames were rendered and visually inspected.
+
+See `validation.md` for installation checks and current performance measurements.
+
+### Remaining issues and intentional limits
+
+- Metadata is caller-supplied; simulation hashes do not authenticate provenance or verify
+  checkpoint files. External manifests can hash the complete recording.
+- Rendering still requires the optional pygame-ce extra. There is no bundled video encoder;
+  external tools can feed the RGB24 bytes to their encoder of choice.
+- Fonts can differ across platforms; pixel identity across machines is not guaranteed.
+- Source-pinned research consumers must update their installation and manifest together.
+  Existing research installations are unchanged by this package release.
+
 ## 1.0.0 — 2026-09-20
 
 ### Previous state and issues

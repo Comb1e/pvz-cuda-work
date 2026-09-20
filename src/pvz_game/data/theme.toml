@@ -1,0 +1,20 @@
+[colors]
+bg = [20, 39, 36]
+panel = [30, 54, 47]
+cream = [244, 239, 216]
+muted = [157, 180, 158]
+green = [155, 212, 119]
+yellow = [248, 207, 94]
+purple = [180, 149, 229]
+red = [227, 117, 101]
+ink = [32, 56, 38]
+
+[labels]
+sunflower = "Sunflower"
+peashooter = "Peashooter"
+wall_nut = "Wall-nut"
+cherry_bomb = "Cherry Bomb"
+potato_mine = "Potato Mine"
+snow_pea = "Snow Pea"
+chomper = "Chomper"
+repeater = "Repeater"

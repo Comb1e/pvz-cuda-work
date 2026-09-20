@@ -12,12 +12,17 @@ flowchart LR
     Rules[TOML rules and scenarios] --> Engine[20 Hz engine]
     API --> Engine
     Engine --> View[Immutable observations and events]
-    View --> Renderer[pygame renderer]
+    View --> Renderer[Shared board and HUD renderer]
+    Renderer --> Window[Interactive surface]
+    Renderer --> Pixels[Offscreen Surface or RGB24 bytes]
     View --> External
     Engine --> Snapshot[Complete JSON snapshot]
     UI --> Recorder[Action recorder]
     Recorder --> File[Replay JSON with hashes]
     File --> Replay
+    File --> Metadata[Optional replay annotations]
+    Metadata --> Context[Explicit presentation context]
+    Context --> Renderer
 ```
 
 ## Ownership
@@ -27,13 +32,25 @@ flowchart LR
 | `config` | Parse and validate rules, explicit schedules, and generated waves |
 | `types` | Frozen actions, events, observations, outcomes, and API versions |
 | `engine` | Own all mutable entities, timers, resources, RNG, and game outcomes |
-| `replay` | Record actions, restore the initial snapshot, and verify state hashes |
-| `ui` | Map input to actions, pace simulation, draw original artwork, and manage screens |
-| `cli` | Launch interactive games, replay verification, and headless benchmarks |
+| `replay` | Record actions, verify state hashes, and carry detached external annotations |
+| `art` | Original plant/zombie primitives and shared drawing helpers; palette/labels in `theme.toml` |
+| `rendering` | Draw a public observation and explicit presentation options into a Surface or RGB bytes |
+| `ui` | Map input to actions, pace simulation, call the shared renderer, and manage screens |
+| `cli` | Launch games, verify/watch replays, export final frames, and measure headless execution |
 
 The core uses Python's standard library. pygame is imported only by the UI and rendering
 tools. The external research project owns observation encoding, rewards, action masks in
 framework-specific form, time cutoffs, training, and evaluation protocols.
+
+`BoardRenderer` accepts an observation, optional `RenderContext`, and optional `RenderOptions`.
+It never takes a Game, seed, snapshot, or future schedule. Selection, hover coordinates, legal
+actions, and inspection/effects come from explicit options. The interactive controller gets
+legal actions from the engine's shared validator; drawing never reads input devices.
+
+The renderer initializes fonts only. `render` owns a fresh output surface; `draw` uses a
+caller-owned native-size surface and restores its clip. RGB24 bytes are immutable, row-major,
+top row first, with no padding. Optional scaling preserves aspect ratio with letterboxing.
+The UI owns its display and event loop; offscreen consumers need neither.
 
 ## Data and reset flow
 
@@ -125,6 +142,27 @@ JSON-safe dictionaries. Restore validates a separate candidate game before repla
 live instance. A replay embeds its original snapshot, records actions at exact ticks, and
 checks hashes at checkpoints and completion. Tick batching does not change final state.
 
-Schema and engine versions are explicit. There is no cross-version snapshot migration.
+Replay metadata contains finite JSON annotations, copied on input and export. It never
+enters snapshots, observations, actions, or state hashes. State verification checks simulation
+consistency, not the authenticity of a caller-supplied policy name or checkpoint checksum.
+
+```mermaid
+flowchart TD
+    State[Actual engine status] --> Terminal{Won or lost?}
+    Terminal -->|yes| EngineOutcome[Show actual engine outcome]
+    Terminal -->|no| Done{Playback fully verified?}
+    Done -->|no| Running[Show running]
+    Done -->|yes| Cutoff{External truncated or interrupted label?}
+    Cutoff -->|yes| ExternalOutcome[Show external cutoff]
+    Cutoff -->|no| Running
+```
+
+`Playback.display_outcome` implements this resolution. Direct renderer users supply their
+presentation context explicitly and decide when an external cutoff applies. Neither path
+changes the engine's Running/Won/Lost state machine.
+
+Schema and engine versions are explicit. Package releases can share a simulation compatibility
+identifier when rules and state semantics are unchanged: package 1.1.0 uses engine 1.0.0 and
+schema version 1. There is no migration across incompatible snapshot versions.
 Platform-independent integer rules are used, but cross-platform determinism has not yet
 been experimentally verified; the tested environment is Python 3.12.3 on Windows 11.

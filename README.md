@@ -8,6 +8,9 @@ Eight plants, five zombies, three scenarios, automatic sun collection, exact rem
 zombie counts, snapshots, and verified action replays are included. Training algorithms,
 rewards, tensor observations, and learning-framework wrappers belong to your external project.
 
+Version 1.1.0 adds optional replay provenance and external cutoff labels, plus a shared
+offscreen board/HUD renderer. Simulation rules and existing replay hashes are preserved.
+
 ## Play
 
 Python 3.12 or newer is required. From this folder on Windows:
@@ -108,6 +111,7 @@ timing, armor, special behavior, and the intentional differences from the origin
 pvz play --level standard --seed 42 --record recordings/my-game.json
 pvz replay recordings/my-game.json
 pvz replay recordings/my-game.json --watch
+pvz replay recordings/my-game.json --frame artifacts/final.png
 pvz replay tests/fixtures/hard-seed42.json --watch
 pvz benchmark --level standard --ticks 20000
 python tools/benchmark_suite.py
@@ -119,6 +123,17 @@ python -m build
 Replay verification checks tick indices, periodic state hashes, and the final state.
 Snapshots and replays require the same engine/schema versions; snapshots also require
 identical rules. Replay files embed their resolved rules and spawn schedule.
+
+Recorders accept optional JSON metadata such as `policy_id`, `checkpoint_sha256`,
+`outcome="truncated"`, and `termination_reason="time_limit"`. These annotations stay outside
+observations and simulation hashes. The underlying game status remains `running` when an
+external controller stops it. See [the metadata and rendering API](docs/api.md) and
+[the offscreen example](examples/offscreen_replay.py) for Surface and RGB24 output.
+
+`PACKAGE_VERSION` is `1.1.0`; the simulation compatibility identifier `ENGINE_VERSION`
+remains `1.0.0`. Source-pinned consumers still need the new commit and file manifest.
+After committing source changes, `python tools/export_engine_pin.py` writes
+`dist/engine-lock-1.1.0.json` for adoption alongside the new package installation.
 
 All three presets include a winning seed-42 replay in `tests/fixtures/`. The small scripted
 controller in `tools/record_playthroughs.py` exists to generate these acceptance fixtures;

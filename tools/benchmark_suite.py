@@ -71,6 +71,22 @@ def main():
         "frames_per_second": round(120 / elapsed, 1),
         "display": "SDL dummy surface, excludes real display presentation",
     }
+    from pvz_game.rendering import BoardRenderer
+
+    renderer = BoardRenderer(size=(1000, 600))
+    observation = app.game.observe()
+    renderer.rgb_frame(observation)  # Warm the font cache before timing.
+    started = perf_counter()
+    for _ in range(120):
+        renderer.rgb_frame(observation)
+    elapsed = perf_counter() - started
+    assert app.game.state_hash() == before
+    report["offscreen_rgb"] = {
+        "frames": 120,
+        "seconds": round(elapsed, 4),
+        "frames_per_second": round(120 / elapsed, 1),
+        "output": "1000x600 RGB24; board/HUD, scaling and byte export; no display presentation",
+    }
     pygame.quit()
     output = Path("artifacts/benchmarks.json")
     output.parent.mkdir(exist_ok=True)

@@ -5,6 +5,7 @@ from .engine import Game
 from .types import (
     API_VERSION,
     ENGINE_VERSION,
+    PACKAGE_VERSION,
     Action,
     ActionResult,
     Dig,
@@ -20,6 +21,7 @@ from .types import (
 __all__ = [
     "API_VERSION",
     "ENGINE_VERSION",
+    "PACKAGE_VERSION",
     "Action",
     "ActionResult",
     "Dig",

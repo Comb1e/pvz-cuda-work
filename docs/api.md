@@ -3,6 +3,10 @@
 Install `pvz-research-game` into the calling environment. The import name is `pvz_game`.
 The core requires Python 3.12+ and no third-party runtime package.
 
+Package release `1.1.0` adds presentation and replay annotations. `PACKAGE_VERSION` identifies
+the package release; `ENGINE_VERSION = "1.0.0"` identifies compatible simulation state.
+Observation, snapshot, and replay schemas remain version 1. Existing hashes remain valid.
+
 ## Game lifecycle
 
 ```python
@@ -166,3 +170,114 @@ Recordings embed an initial snapshot, tick-indexed actions and durations, period
 and a final hash/outcome. They can begin mid-game. Verification reconstructs and advances
 the recording one tick at a time, checking every checkpoint. Incompatible versions or
 changed action/state data raise an error rather than silently accepting divergent playback.
+
+### Optional replay metadata and provenance
+
+```python
+recorder = Recorder(game, metadata={
+    "policy_id": "shared-policy-v2",
+    "checkpoint_sha256": "a" * 64,  # Supply the actual file hash in real experiments.
+    "experiment": {"run_id": "run-003", "evaluation": True},
+})
+recorder.step(Wait(), ticks=20)
+# The external wrapper, rather than the game, decides when its time limit is reached.
+recorder.update_metadata({"outcome": "truncated", "termination_reason": "time_limit"})
+recorder.save("recordings/limited.json")
+
+playback = Playback("recordings/limited.json")
+verified_game = playback.verify()
+print(verified_game.observe().status)  # running, if the game itself has not ended
+print(playback.display_outcome)       # truncated
+print(playback.metadata["policy_id"])
+```
+
+Metadata is an optional top-level JSON object, separate from snapshots, observations, actions,
+and simulation hashes. Omitting it preserves the previous replay shape. Nested dictionaries
+and lists of finite JSON values are accepted, with string object keys. Inputs, exports, and
+the `metadata` properties are detached copies; `update_metadata` merges top-level fields only.
+Invalid updates leave existing annotations intact. The engine does not read metadata.
+
+Use these field names as the shared provenance convention:
+
+| Field | Meaning |
+|---|---|
+| `policy_id` | Caller-supplied name or stable identifier of the controller/checkpoint |
+| `checkpoint_sha256` | Caller-supplied checksum of the checkpoint file |
+| `outcome` | `running`, `won`, `lost`, `truncated`, or `interrupted` |
+| `termination_reason` | Why the external controller stopped, such as `time_limit` |
+| Other JSON fields | Application-owned annotations, for example a nested `experiment` object |
+
+The four conventional fields must be strings when present. The checkpoint string is stored
+verbatim; the engine does not open checkpoint paths or verify model files. Hash verification
+authenticates simulation consistency only, not the truth of these caller-supplied annotations.
+Use a whole-replay file checksum in an external manifest when metadata integrity matters.
+
+`Playback.display_outcome` uses external cutoff labels only after verification reaches the
+recorded end. Actual game wins/losses always take precedence. An external `won` label cannot
+turn a still-running game into a victory. Legacy recordings without metadata keep their
+original behavior. The CLI preserves `status` as the engine status and adds `outcome` and
+`metadata` only when annotations exist.
+
+### Offscreen board and HUD
+
+Install the optional `ui` extra for pygame-ce. No display driver, window, event queue, or
+NumPy dependency is needed by the offscreen renderer:
+
+```python
+from pvz_game.rendering import BoardRenderer, RenderContext
+
+renderer = BoardRenderer(size=(1000, 600))
+surface = renderer.render(game.observe())
+rgb = renderer.rgb_frame(game.observe())
+assert len(rgb.data) == rgb.width * rgb.height * 3
+
+# For a completed replay's presentation, explicitly attach external labels.
+surface = renderer.render(playback.game.observe(), context=RenderContext(
+    policy_id=playback.metadata.get("policy_id"),
+    outcome=playback.display_outcome,
+    termination_reason=playback.metadata.get("termination_reason"),
+))
+```
+
+`render` returns an independent pygame Surface. `rgb_frame` returns a frozen `RGBFrame` with
+`width`, `height`, and packed `data`: RGB24, top row first, row-major, no padding. FFmpeg can
+consume the bytes directly. In a project that already uses NumPy, convert with
+`np.frombuffer(rgb.data, dtype=np.uint8).reshape(rgb.height, rgb.width, 3)`; call `.copy()` if
+you need writable pixels.
+
+The native canvas is 1280×820 by default. Requested output sizes preserve its aspect ratio
+with background-colored letterboxing. `draw(observation, surface, ...)` paints into a
+caller-owned native-size surface and restores that surface's clip rectangle. Rendering
+initializes only pygame's font subsystem; it neither opens nor closes an existing display.
+Images depend on installed fonts, so cross-platform pixel identity is not promised.
+
+`RenderContext` optionally supplies `policy_id`, `outcome`, `termination_reason`, and `message`.
+Pass no context when preparing policy input. The renderer accepts only a public Observation
+and explicitly supplied presentation values; it never receives a Game, seed, snapshot, or
+future schedule. Metadata is never added to an observation or auto-forwarded into rendering.
+
+`RenderOptions` controls optional selection/inspection overlays, supplied hover coordinates,
+legal actions, status badges, and outcome banners. Human controls compute these values via
+the shared validator. No mouse or keyboard state is read by the renderer. The interactive
+application uses the same board, HUD, and primitive drawing functions. Existing imports of
+`pvz_game.ui.plant_art` and `zombie_art` remain available.
+
+Export a verified final PNG or run the complete example:
+
+```text
+pvz replay recordings/limited.json --frame artifacts/limited.png
+python examples/offscreen_replay.py
+```
+
+The example writes a metadata-bearing replay and a PPM frame from RGB bytes. Rendering and
+annotations do not change the game's cutoff status: the engine can remain `running` while
+the presentation says `TRUNCATED`.
+
+### Source pins for external consumers
+
+Source-pinned consumers must adopt the new package's Git commit and source manifest even
+though its simulation compatibility identifier remains `1.0.0`. Run
+`python tools/export_engine_pin.py` after committing the source to generate
+`dist/engine-lock-1.1.0.json`. The file contains the commit, package/simulation versions,
+rules hash, and SHA-256 hashes of every installed Python/TOML file, normalizing CRLF to LF.
+Existing research installations and their pinned manifests are not automatically changed.

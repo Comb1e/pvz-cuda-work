@@ -70,3 +70,43 @@ def test_keyboard_and_shovel(app):
     assert app.speed == 4
     app.activate("speed")
     assert app.speed == 1
+
+
+def test_replay_modal_shows_external_cutoff(tmp_path):
+    from pvz_game import Game
+    from pvz_game.replay import Recorder
+
+    game = Game()
+    game.reset()
+    recorder = Recorder(
+        game,
+        metadata={
+            "outcome": "truncated",
+            "termination_reason": "time_limit",
+            "policy_id": "shared",
+        },
+    )
+    recorder.step(ticks=1)
+    path = tmp_path / "partial.json"
+    recorder.save(path)
+    app = App(replay_path=path)
+    try:
+        assert app.mode == Screen.PLAYING
+        app.advance()
+        assert app.mode == Screen.ENDED
+        text = []
+        original = app.text
+
+        def capture(value, *args, **kwargs):
+            text.append(str(value))
+            return original(value, *args, **kwargs)
+
+        app.text = capture
+        app.draw()
+        assert "Replay truncated" in text
+        assert "time limit" in text
+        assert app.game.observe().status.value == "running"
+        app.restart()
+        assert app.playback.display_outcome == "running"
+    finally:
+        pygame.quit()

@@ -47,7 +47,11 @@ def main(argv: list[str] | None = None) -> int:
     play.add_argument("--record", type=Path, help="save a replay when leaving the game")
     replay = commands.add_parser("replay", help="verify or watch a recorded game")
     replay.add_argument("path", type=Path)
-    replay.add_argument("--watch", action="store_true")
+    display = replay.add_mutually_exclusive_group()
+    display.add_argument("--watch", action="store_true")
+    display.add_argument(
+        "--frame", type=Path, help="save the verified final frame without a window"
+    )
     bench = commands.add_parser("benchmark", help="measure headless simulation and state export")
     bench.add_argument("--level", choices=("easy", "standard", "hard"), default="standard")
     bench.add_argument("--seed", type=int, default=42)
@@ -70,26 +74,39 @@ def main(argv: list[str] | None = None) -> int:
                 ui_config=args.ui_config,
             ).run()
         elif args.command == "replay":
-            from .replay import verify_replay
+            from .replay import Playback
 
             if args.watch:
                 from .ui import App
 
                 App(replay_path=args.path).run()
             else:
-                game = verify_replay(args.path)
+                playback = Playback(args.path)
+                game = playback.verify()
                 obs = game.observe()
-                print(
-                    json.dumps(
-                        {
-                            "verified": True,
-                            "status": obs.status.value,
-                            "tick": obs.tick,
-                            "hash": game.state_hash(),
-                        },
-                        indent=2,
+                summary = {
+                    "verified": True,
+                    "status": obs.status.value,
+                    "tick": obs.tick,
+                    "hash": game.state_hash(),
+                }
+                if playback.metadata:
+                    summary.update(metadata=playback.metadata, outcome=playback.display_outcome)
+                if args.frame:
+                    from .rendering import BoardRenderer, RenderContext, pygame
+
+                    frame = BoardRenderer().render(
+                        obs,
+                        context=RenderContext(
+                            policy_id=playback.metadata.get("policy_id"),
+                            outcome=playback.display_outcome,
+                            termination_reason=playback.metadata.get("termination_reason"),
+                        ),
                     )
-                )
+                    args.frame.parent.mkdir(parents=True, exist_ok=True)
+                    pygame.image.save(frame, args.frame)
+                    summary["frame"] = str(args.frame)
+                print(json.dumps(summary, indent=2))
         else:
             if args.ticks <= 0:
                 parser.error("--ticks must be positive")
