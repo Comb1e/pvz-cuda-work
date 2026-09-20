@@ -1,0 +1,20 @@
+name = "two-lane-practice"
+initial_sun = 150
+mowers = true
+
+[[plants]]
+plant_type = "sunflower"
+row = 2
+col = 0
+
+[[spawns]]
+tick = 600
+zombie_type = "basic"
+row = 1
+wave = 1
+
+[[spawns]]
+tick = 900
+zombie_type = "conehead"
+row = 3
+wave = 2

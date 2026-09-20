@@ -1,0 +1,10 @@
+width = 1280
+height = 820
+fps = 60
+board_x = 64
+board_y = 226
+tile_width = 98
+tile_height = 96
+sidebar_x = 980
+default_seed = 42
+title = "Lawn Lab"

@@ -1,0 +1,104 @@
+version = "daytime-1.0"
+
+[game]
+tick_rate = 20
+rows = 5
+cols = 9
+units_per_tile = 1000
+initial_sun = 50
+sun_cap = 9990
+sky_sun_amount = 25
+sky_sun_seconds = 10
+spawn_x = 9.5
+house_x = -0.5
+mower_trigger_x = 0
+mower_speed = 5
+projectile_speed = 10
+projectile_offset = 0.3
+contact_offset = 0.3
+vault_seconds = 0.8
+vault_distance = 1
+bite_seconds = 1
+bite_damage = 100
+slow_seconds = 10
+
+[plants.sunflower]
+cost = 50
+health = 300
+recharge_seconds = 7.5
+first_seconds = 6
+interval_seconds = 24
+sun_amount = 25
+
+[plants.peashooter]
+cost = 100
+health = 300
+recharge_seconds = 7.5
+interval_seconds = 1.5
+damage = 20
+
+[plants.wall_nut]
+cost = 50
+health = 4000
+recharge_seconds = 30
+
+[plants.cherry_bomb]
+cost = 150
+health = 300
+recharge_seconds = 50
+first_seconds = 1.2
+damage = 1800
+
+[plants.potato_mine]
+cost = 25
+health = 300
+recharge_seconds = 30
+first_seconds = 14
+damage = 1800
+
+[plants.snow_pea]
+cost = 175
+health = 300
+recharge_seconds = 7.5
+interval_seconds = 1.5
+damage = 20
+
+[plants.chomper]
+cost = 150
+health = 300
+recharge_seconds = 7.5
+interval_seconds = 42
+
+[plants.repeater]
+cost = 200
+health = 300
+recharge_seconds = 7.5
+interval_seconds = 1.5
+burst_seconds = 0.15
+damage = 20
+
+[zombies.basic]
+health = 200
+armor = 0
+speed = 0.2
+
+[zombies.flag]
+health = 200
+armor = 0
+speed = 0.24
+
+[zombies.conehead]
+health = 200
+armor = 400
+speed = 0.2
+
+[zombies.buckethead]
+health = 200
+armor = 1100
+speed = 0.2
+
+[zombies.pole_vaulting]
+health = 400
+armor = 0
+speed = 0.2
+pole_speed = 0.4

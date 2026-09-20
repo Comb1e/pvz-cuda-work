@@ -1,0 +1,6 @@
+include AGENTS.md
+include requirements-dev-lock.txt
+recursive-include docs *.md
+recursive-include examples *.py *.toml
+recursive-include tests *.py *.json
+recursive-include tools *.py

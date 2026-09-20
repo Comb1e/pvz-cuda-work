@@ -1,0 +1,10 @@
+name = "generated-practice"
+preparation_seconds = 30
+wave_seconds = 25
+jitter_seconds = 4
+initial_sun = 50
+waves = [
+  ["basic"],
+  ["basic", "flag"],
+  ["conehead", "pole_vaulting", "basic"],
+]

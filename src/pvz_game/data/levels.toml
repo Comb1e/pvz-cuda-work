@@ -1,0 +1,50 @@
+[easy]
+preparation_seconds = 30
+wave_seconds = 25
+jitter_seconds = 4
+waves = [
+  ["basic"],
+  ["basic", "flag"],
+  ["basic", "basic", "basic"],
+  ["basic", "flag", "basic", "basic"],
+  ["flag", "basic", "basic", "basic", "flag"],
+]
+
+[standard]
+preparation_seconds = 30
+wave_seconds = 25
+jitter_seconds = 5
+waves = [
+  ["basic"],
+  ["basic", "flag"],
+  ["basic", "conehead", "basic"],
+  ["basic", "pole_vaulting", "flag"],
+  ["conehead", "basic", "basic", "basic"],
+  ["basic", "buckethead", "basic", "flag"],
+  ["pole_vaulting", "conehead", "basic", "basic", "basic"],
+  ["buckethead", "basic", "flag", "basic", "basic"],
+  ["conehead", "pole_vaulting", "basic", "basic", "conehead", "flag"],
+  ["flag", "buckethead", "conehead", "pole_vaulting", "basic", "basic", "flag"],
+]
+
+[hard]
+preparation_seconds = 30
+wave_seconds = 25
+jitter_seconds = 5
+waves = [
+  ["basic"],
+  ["basic", "flag"],
+  ["basic", "conehead", "basic"],
+  ["basic", "pole_vaulting", "flag"],
+  ["conehead", "basic", "basic", "basic"],
+  ["basic", "buckethead", "basic", "flag"],
+  ["pole_vaulting", "conehead", "basic", "basic", "basic"],
+  ["buckethead", "basic", "flag", "basic", "basic"],
+  ["conehead", "pole_vaulting", "basic", "basic", "conehead", "flag"],
+  ["flag", "buckethead", "conehead", "pole_vaulting", "basic", "basic", "flag"],
+  ["buckethead", "basic", "conehead", "flag", "pole_vaulting", "conehead", "basic"],
+  ["pole_vaulting", "buckethead", "basic", "conehead", "basic", "flag", "basic"],
+  ["conehead", "conehead", "buckethead", "flag", "basic", "pole_vaulting", "basic"],
+  ["buckethead", "pole_vaulting", "conehead", "basic", "flag", "buckethead", "basic"],
+  ["flag", "buckethead", "buckethead", "pole_vaulting", "conehead", "basic", "flag"],
+]
