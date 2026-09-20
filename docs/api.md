@@ -3,7 +3,7 @@
 Install `pvz-research-game` into the calling environment. The import name is `pvz_game`.
 The core requires Python 3.12+ and no third-party runtime package.
 
-Package release `1.2.0` adds compact operation demos, live recording, and seeking. `PACKAGE_VERSION` identifies
+Package release `1.2.1` presents zombie progress as defeated/total. `PACKAGE_VERSION` identifies
 the package release; `ENGINE_VERSION = "1.0.0"` identifies compatible simulation state.
 Observation, snapshot, and replay schemas remain version 1. Existing hashes remain valid.
 
@@ -85,6 +85,11 @@ three single-tick waits produces the same complete state.
 | `mowers` | Row, x, ready/moving/spent state |
 | `wave`, `total_waves` | Current highest spawned wave and total waves |
 | `counts` | Initial total, spawned, alive, defeated, not yet spawned, remaining |
+
+The shared display formats zombie progress as
+`f"{observation.counts.defeated}/{observation.counts.initial_total}"`, for example `2/15`.
+The denominator is the fixed total for the full level, including future spawns. The API
+continues exposing separate integer counts for calculation and external controllers.
 
 Collections are tuples with stable entity IDs. Positions `x` use fixed-point units,
 not pixels. A tile's center is `(column + 0.5) * units_per_tile`.
@@ -281,6 +286,6 @@ the presentation says `TRUNCATED`.
 Source-pinned consumers must adopt the new package's Git commit and source manifest even
 though its simulation compatibility identifier remains `1.0.0`. Run
 `python tools/export_engine_pin.py` after committing the source to generate
-`dist/engine-lock-1.2.0.json`. The file contains the commit, package/simulation versions,
+`dist/engine-lock-1.2.1.json`. The file contains the commit, package/simulation versions,
 rules hash, and SHA-256 hashes of every installed Python/TOML file, normalizing CRLF to LF.
 Existing research installations and their pinned manifests are not automatically changed.

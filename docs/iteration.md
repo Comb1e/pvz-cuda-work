@@ -1,5 +1,28 @@
 # Iteration history
 
+## 1.2.1 — 2026-09-20
+
+### Previous issue and root cause
+
+The main zombie counter displayed only the remaining number. Although observations already
+provided defeated and initial-total counts, the HUD did not express progress as requested.
+
+### Improvements
+
+- The shared HUD now shows defeated/total, for example `2/15`, in gameplay, live previews,
+  replays, and exported frames. The denominator includes every scheduled zombie in the level.
+- Kept remaining, on-lawn, and upcoming subtotals. The counter chooses a smaller existing
+  font when necessary to fit larger custom scenarios into the sidebar.
+- Documented the format while retaining separate integer API fields and simulation version 1.0.0.
+
+### Verification and remaining limits
+
+Checked initial, partial, complete, empty, and large counts (`0/15`, `2/15`, `15/15`, `0/0`,
+`75/75`, `200/200`), including visual layout and unchanged simulation hashes. Existing rendering,
+UI, live demo, property, and replay checks cover the shared paths. This is a presentation change;
+77 targeted tests pass. Existing platform, synchronous live-preview, and source-pin limitations
+still apply.
+
 ## 1.2.0 — 2026-09-20
 
 ### Previous state and issues

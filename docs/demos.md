@@ -1,4 +1,4 @@
-# Operation demos — package 1.2.0
+# Operation demos — package 1.2.1
 
 A demo stores the initial game state and timed operations, then reconstructs the game while
 you watch. It follows the StarCraft II replay approach using Lawn Lab's own `.pvzdemo` format.
@@ -192,7 +192,7 @@ resolved configuration, timed actions, checkpoint hashes, final state hash/statu
 optional metadata. It contains privileged debugging data, including future spawns, and is
 not a policy observation. Seek caches and rendered frames are never written to the file.
 
-Package 1.2.0 retains simulation compatibility version 1.0.0. Existing JSON replays and
-snapshots remain valid. Older readers need the demo decompressed to JSON or an upgrade to
+Package 1.2.1 retains simulation compatibility version 1.0.0. Existing JSON replays and
+snapshots remain valid. Readers from before 1.2.0 need the demo decompressed to JSON or an upgrade to
 read compressed files. Source-pinned consumers adopt the new installation and source pin
 together. The format is specific to Lawn Lab and cannot be opened by StarCraft II.

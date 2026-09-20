@@ -1,4 +1,4 @@
-# Release validation — 1.2.0
+# Release validation — 1.2.1
 
 Date: 2026-09-20. Platform: Windows 11, Python 3.12.3, Intel Core i9-14900HX,
 32 logical processors, approximately 32 GiB RAM. The simulation and tests use CPU execution;
@@ -6,7 +6,11 @@ the installed RTX 4070 Laptop GPU is not required.
 
 ## Automated checks
 
-The release suite contains **199 passing tests**, including generated Hypothesis cases.
+The 1.2.0 full release suite passed **199 tests**, including generated Hypothesis cases.
+Patch 1.2.1 reran **77 relevant rendering, UI, demo, property, and replay tests**, all passing.
+Direct rendering checks verified `0/15`, `2/15`, `15/15`, `0/0`, `75/75`, and `200/200`,
+sidebar fit, and unchanged simulation state. The `2/15` and `200/200` frames were visually
+inspected. The performance measurements below remain explicitly those from 1.2.0.
 
 | Area | Verified behavior |
 |---|---|
@@ -139,7 +143,7 @@ control. The reproducible tests, scenario data, and intentional acceptance fixtu
 Only Windows/Python 3.12.3 was exercised. Real cross-platform replay agreement is unverified.
 Interactive behavior is checked through pygame event tests and rendered frames; a lengthy
 human usability study has not been performed. There is no learning system or measured RL
-performance in this release. Package 1.2.0 deliberately retains engine version 1.0.0 and schema
+performance in this release. Package 1.2.1 deliberately retains engine version 1.0.0 and schema
 version 1, so existing 1.0.0/1.1.0 snapshots/replays remain compatible. Migration across incompatible
 engine/schema versions is not provided. Replay annotations are caller-supplied and are not
 authenticated by simulation hashes. Rendering requires the optional pygame-ce dependency.

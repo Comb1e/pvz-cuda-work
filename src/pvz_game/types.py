@@ -8,7 +8,7 @@ SNAPSHOT_VERSION = 1
 # Simulation compatibility identifier, included in state hashes. Presentation-only
 # package releases retain it so existing snapshots and research baselines still replay.
 ENGINE_VERSION = "1.0.0"
-PACKAGE_VERSION = "1.2.0"
+PACKAGE_VERSION = "1.2.1"
 
 
 class Status(StrEnum):

@@ -8,8 +8,8 @@ Eight plants, five zombies, three scenarios, automatic sun collection, exact rem
 zombie counts, snapshots, and verified action replays are included. Training algorithms,
 rewards, tensor observations, and learning-framework wrappers belong to your external project.
 
-Version 1.2.0 adds compact operation demos, optional live recording, and a seekable replay
-timeline with speeds from 0.5× to 8×. Simulation rules and existing replay hashes are preserved.
+Version 1.2.1 shows zombie progress as defeated/total, such as `2/15`, across gameplay and
+demos. Compact recordings support live viewing and a seekable timeline with 0.5×–8× speeds.
 
 ## Play
 
@@ -44,8 +44,10 @@ Windows is the verified platform for this release.
 | F5 | Save a replay under `recordings/` |
 
 At the level menu, type digits or Backspace to edit the seed. Sun credits automatically.
-The remaining counter includes both living and unspawned zombies; the future roster,
-lanes, and exact spawn times are not shown. All eight cards are available immediately.
+The main zombie counter shows defeated/total, such as `2/15`. Total includes every zombie
+scheduled for the level, and stays fixed as zombies spawn or are defeated. Remaining,
+on-lawn, and upcoming counts are also shown; future identities, lanes, and exact spawn times
+are not shown. All eight cards are available immediately.
 
 ## Control from another project
 
@@ -138,10 +140,10 @@ observations and simulation hashes. The underlying game status remains `running`
 external controller stops it. See [the metadata and rendering API](docs/api.md) and
 [the offscreen example](examples/offscreen_replay.py) for Surface and RGB24 output.
 
-`PACKAGE_VERSION` is `1.2.0`; the simulation compatibility identifier `ENGINE_VERSION`
+`PACKAGE_VERSION` is `1.2.1`; the simulation compatibility identifier `ENGINE_VERSION`
 remains `1.0.0`. Source-pinned consumers still need the new commit and file manifest.
 After committing source changes, `python tools/export_engine_pin.py` writes
-`dist/engine-lock-1.2.0.json` for adoption alongside the new package installation.
+`dist/engine-lock-1.2.1.json` for adoption alongside the new package installation.
 
 All three presets include a winning seed-42 replay in `tests/fixtures/`. The small scripted
 controller in `tools/record_playthroughs.py` exists to generate these acceptance fixtures;

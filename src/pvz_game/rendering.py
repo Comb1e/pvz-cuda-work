@@ -358,13 +358,22 @@ class _BoardCanvas(Painter):
     def _draw_sidebar(self, obs):
         x = self.cfg["sidebar_x"]
         self.panel((x, 226, 264, 480))
-        self.text("ZOMBIES REMAINING", x + 20, 246, 13, MUTED)
-        self.text(obs.counts.remaining, x + 19, 271, 64)
+        self.text("ZOMBIES DEFEATED / TOTAL", x + 20, 246, 13, MUTED)
+        progress = f"{obs.counts.defeated}/{obs.counts.initial_total}"
+        size = next(
+            (
+                size
+                for size in sorted(self.fonts, reverse=True)
+                if self.fonts[size].size(progress)[0] <= 224
+            ),
+            13,
+        )
+        self.text(progress, x + 19, 271, size)
         self.text(f"{obs.counts.alive} on lawn", x + 20, 361, 17, GREEN)
         self.text(f"{obs.counts.not_yet_spawned} upcoming", x + 138, 361, 17, MUTED)
         pygame.draw.line(self.surface, (65, 87, 66), (x + 20, 404), (x + 244, 404))
         self.text(f"WAVE {obs.wave} / {obs.total_waves}", x + 20, 424, 15, CREAM)
-        self.text(f"{obs.counts.defeated} defeated", x + 20, 455, 15, MUTED)
+        self.text(f"{obs.counts.remaining} remaining", x + 20, 455, 15, MUTED)
         self.text("MOWERS", x + 20, 504, 13, MUTED)
         for i, m in enumerate(obs.mowers):
             color = GREEN if m.state == "ready" else YELLOW if m.state == "moving" else (61, 81, 63)

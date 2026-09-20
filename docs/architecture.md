@@ -70,6 +70,9 @@ The core uses Python's standard library. pygame is imported only by the UI and r
 tools. The external research project owns observation encoding, rewards, action masks in
 framework-specific form, time cutoffs, training, and evaluation protocols.
 
+The shared HUD displays `counts.defeated/counts.initial_total`, such as `2/15`. All views use
+this one formatter; integer observation counts and game outcomes retain their existing meaning.
+
 `BoardRenderer` accepts an observation, optional `RenderContext`, and optional `RenderOptions`.
 It never takes a Game, seed, snapshot, or future schedule. Selection, hover coordinates, legal
 actions, and inspection/effects come from explicit options. The interactive controller gets
@@ -210,7 +213,7 @@ presentation context explicitly and decide when an external cutoff applies. Neit
 changes the engine's Running/Won/Lost state machine.
 
 Schema and engine versions are explicit. Package releases can share a simulation compatibility
-identifier when rules and state semantics are unchanged: package 1.2.0 uses engine 1.0.0 and
+identifier when rules and state semantics are unchanged: package 1.2.1 uses engine 1.0.0 and
 schema version 1. There is no migration across incompatible snapshot versions.
 Platform-independent integer rules are used, but cross-platform determinism has not yet
 been experimentally verified; the tested environment is Python 3.12.3 on Windows 11.
