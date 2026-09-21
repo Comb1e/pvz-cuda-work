@@ -1,3 +1,28 @@
+# CUDA release verification — 1.3.0
+
+2026-09-21, Windows, Python 3.12, RTX 4070 Laptop, CUDA PyTorch 2.8.0+cu128,
+CuPy 13.6.0, NVRTC 12.8.93 and runtime 12.8.90.
+
+- Complete game suite: **214 passed in 51.41 s**.
+- 15 CUDA cases include all plants/zombies, integer movement and timers, action
+  masks/acceptance, ordered public events, exact canonical snapshot hashes,
+  preserved archived easy/standard/hard wins and failures, simultaneous crowded
+  mower contacts, mid-game shots, resets and transactional capacity rejection.
+- Research-side independent checks additionally compare encoders, reward
+  components, device GAE, losses, gradients and optimizer updates to CPU/SB3.
+- The optional runtime compiles and executes kernels on Windows without `nvcc`
+  or a machine-wide toolkit. DLPack pointer identity and shared-stream writes
+  are verified by the research `doctor` probe.
+
+The first full-suite invocation used a nonexistent parent for pytest's external
+temporary directory; its 65 fixture setup errors were corrected by creating the
+external parent, then the entire suite passed. No game assertion was loosened.
+Original user checkouts/environments/jobs are untouched; development and caches
+use isolated worktrees or external directories. See the consumer's
+`docs/gpu-performance.md` for bounded whole-training measurements.
+
+## Earlier verification records
+
 # Release validation — 1.2.1
 
 Date: 2026-09-20. Platform: Windows 11, Python 3.12.3, Intel Core i9-14900HX,

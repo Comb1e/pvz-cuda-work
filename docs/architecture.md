@@ -1,7 +1,8 @@
 # Current architecture
 
-Lawn Lab has one game engine. Human controls, Python callers, and replay playback all
-submit the same actions. The renderer only reads public observations.
+Lawn Lab has a Python reference simulator and an optional CUDA batch simulator.
+Human controls and replay playback use the Python API. CUDA training batches use
+the same rules and operation order. The renderer only reads public observations.
 
 ```mermaid
 flowchart LR
@@ -17,6 +18,13 @@ flowchart LR
     Live --> Renderer
     Replay[Replay playback] --> API
     Rules[TOML rules and scenarios] --> Engine[20 Hz engine]
+    Rules --> Resolve[CPU scenario resolution]
+    Resolve --> GPU[CUDA arrays and ordered game kernels]
+    External --> GPU
+    GPU --> Numeric[Device state and compact event facts]
+    Numeric --> External
+    GPU --> Compare[Diagnostic snapshots and ordered events]
+    Compare --> Snapshot
     API --> Engine
     Engine --> View[Immutable observations and events]
     View --> Renderer[Shared board and HUD renderer]
@@ -39,6 +47,7 @@ flowchart LR
 | `config` | Parse and validate rules, explicit schedules, and generated waves |
 | `types` | Frozen actions, events, observations, outcomes, and API versions |
 | `engine` | Own all mutable entities, timers, resources, RNG, and game outcomes |
+| `cuda` | Optional batched integer simulation, checked reset/step, public numeric state, event facts, diagnostic snapshots and hashes |
 | `replay` | Record actions, verify state hashes, and carry detached external annotations |
 | `demo` | Validate scheduled actions, record submitted calls, finalize external outcomes and atomic files |
 | `demo_ui` | Pace live session ticks, process preview input, and render public observations |

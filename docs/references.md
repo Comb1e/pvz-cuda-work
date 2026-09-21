@@ -1,5 +1,21 @@
 # Sources used
 
+## CUDA backend sources inspected on 2026-09-21
+
+- Lan et al., [WarpDrive: Fast End-to-End Deep Multi-Agent Reinforcement Learning
+  on a GPU](https://jmlr.org/papers/v23/22-0185.html), 2022; also inspected the
+  [project README](https://github.com/salesforce/warp-drive). Used the architectural
+  idea of batching simulation and retaining training tensors on-device. No code
+  was copied, and published speedups are not laptop measurements.
+- CuPy **v13.6.0** versioned [kernel guide](https://raw.githubusercontent.com/cupy/cupy/v13.6.0/docs/source/user_guide/kernel.rst)
+  and [interoperability guide](https://raw.githubusercontent.com/cupy/cupy/v13.6.0/docs/source/user_guide/interoperability.rst).
+  Inspected RawModule/RawKernel compilation, DLPack ownership and ExternalStream
+  contracts. Used these APIs directly and checked Windows execution locally.
+- NVIDIA Python wheels `nvidia-cuda-runtime-cu12==12.8.90` and
+  `nvidia-cuda-nvrtc-cu12==12.8.93`: inspected installed headers/DLL layout and
+  verified kernel compilation without a global toolkit. These are optional
+  runtime dependencies; core gameplay remains dependency-free.
+
 Reviewed on 2026-09-20 while establishing this project. These sources informed design;
 their presence does not establish that any learning algorithm will solve this game.
 No code or artwork from the PvZ reference projects was copied.

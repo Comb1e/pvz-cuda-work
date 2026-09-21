@@ -8,7 +8,8 @@ Eight plants, five zombies, three scenarios, automatic sun collection, exact rem
 zombie counts, snapshots, and verified action replays are included. Training algorithms,
 rewards, tensor observations, and learning-framework wrappers belong to your external project.
 
-Version 1.2.1 shows zombie progress as defeated/total, such as `2/15`, across gameplay and
+Version 1.3.0 adds an optional CUDA batch simulator ([API and setup](docs/cuda.md)).
+The renderer shows zombie progress as defeated/total, such as `2/15`, across gameplay and
 demos. Compact recordings support live viewing and a seekable timeline with 0.5×–8× speeds.
 
 ## Play
@@ -140,10 +141,10 @@ observations and simulation hashes. The underlying game status remains `running`
 external controller stops it. See [the metadata and rendering API](docs/api.md) and
 [the offscreen example](examples/offscreen_replay.py) for Surface and RGB24 output.
 
-`PACKAGE_VERSION` is `1.2.1`; the simulation compatibility identifier `ENGINE_VERSION`
+`PACKAGE_VERSION` is `1.3.0`; the simulation compatibility identifier `ENGINE_VERSION`
 remains `1.0.0`. Source-pinned consumers still need the new commit and file manifest.
 After committing source changes, `python tools/export_engine_pin.py` writes
-`dist/engine-lock-1.2.1.json` for adoption alongside the new package installation.
+`the consumer project's engine-lock.json` for adoption alongside the new package installation.
 
 All three presets include a winning seed-42 replay in `tests/fixtures/`. The small scripted
 controller in `tools/record_playthroughs.py` exists to generate these acceptance fixtures;

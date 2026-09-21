@@ -1,5 +1,38 @@
 # Iteration history
 
+## 1.3.0 — 2026-09-21
+
+### Previous issue and root cause
+
+Research collection simulated Python entity objects and transferred observations,
+actions and masks between CPU workers and the GPU. The CPU/IPC path limited the
+number of parallel games usable by the laptop GPU.
+
+### Improvements
+
+- Optional CuPy 13.6/NVRTC backend with contiguous integer state and independent
+  CUDA games. Preserve operation order, targeting ties, remainders and IDs.
+- Checked batched scenario reset/restore, 406-action masks, immediate action
+  phases, compact combat facts, and diagnostic events/snapshots/hashes.
+- Proved projectile storage bound; reject insufficient roster/shot capacity
+  before mutation. Modified rules stay on the explicit Python backend.
+- Optional Windows runtime/header/compiler wheels; ordinary gameplay/replays
+  retain the dependency-free Python engine and native renderer.
+
+### Verification and remaining limits
+
+Complete game suite: **214 passed in 51.41 s**, including 15 CUDA differential
+cases. Replayed the easy/standard/hard seed-42 archived action streams, matching
+intermediate and final hashes, ticks, events and outcomes. Tested every plant
+against every zombie type, crowded mower sweeps, mid-game projectile restore,
+legality/acceptance, same-tick placement/digging, resets and capacity rejection.
+The simulation compatibility identifier remains **1.0.0**; package is **1.3.0**.
+
+CUDA executes ordered combat within each game. Further intra-game parallelism
+would need new race/order proofs. Signed int64 storage and declared capacities
+are explicit limits. GPU speed is measured by the consumer's complete training
+pipeline; this release makes no learning-quality or hardware speedup claim.
+
 ## 1.2.1 — 2026-09-20
 
 ### Previous issue and root cause
