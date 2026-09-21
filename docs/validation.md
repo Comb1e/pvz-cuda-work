@@ -1,3 +1,25 @@
+# Native research replay verification — 2026-09-21
+
+- Complete game suite: **222 passed in 41.48 seconds**. Cache, bytecode and
+  temporary test output were directed outside this checkout.
+- New fixtures cover compressed/plain input, same-tick placement and digging,
+  batched waits, mid-game starts, cache boundaries, completion and rewind,
+  instant-only recordings, natural win/loss over external cutoff, unknown format,
+  corrupted hashes/timeline and native headless viewer rendering.
+- The completed SC2 checkpoint's original demos verify without conversion:
+  easy won at 4226, standard lost at 4184, hard lost at 5074. Final hashes match
+  the research manifests; rewind followed by seeking to completion matches again.
+- Source launcher verification succeeded using the research environment's Python;
+  that environment still imports its original pinned simulator outside the launcher.
+- The native easy-demo final frame was visually inspected. No simulation state,
+  recording file, game rules or recorded tick count changed.
+
+Research logs: `E:/Projects/Tower-Defence-AI/PVZ-plant/artifacts/` contains the
+complete native and CUDA suite logs, launcher verification JSON and the final frame.
+No formal training was started by these replay checks.
+
+---
+
 # CUDA release verification — 1.3.0
 
 2026-09-21, Windows, Python 3.12, RTX 4070 Laptop, CUDA PyTorch 2.8.0+cu128,

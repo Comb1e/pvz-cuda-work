@@ -42,3 +42,13 @@ health, timing, and speed values are this project's explicit `daytime-1.0` prese
 
 Other projects and papers encountered during discovery were not adopted as implementation
 dependencies or as evidence of verified win rates. This project makes no RL performance claim.
+
+## Research replay compatibility — 2026-09-21
+
+Inspected `PVZ-plant/src/pvz_rl/recordings.py` and `action_timing.py` at research
+commit `665aec5` (reader introduced earlier). The explicit `pvz-rl/actions-v1`
+contract permits zero-tick planting/digging; version 1 requires positive ticks.
+The native adapter follows that contract and reuses native seek/hash machinery.
+Local evidence: the shared checkpoint `ce6b6fc3b480233c67b4009e6ce44d7412d2e2ef8fc7db8c047d34fe70fbb65e`
+has easy/standard/hard demos ending at ticks 4226/4184/5074 with matching hashes.
+This is a format compatibility fix, with no new learning or combat claim.

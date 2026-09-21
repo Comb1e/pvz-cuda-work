@@ -12,6 +12,27 @@ Version 1.3.0 adds an optional CUDA batch simulator ([API and setup](docs/cuda.m
 The renderer shows zombie progress as defeated/total, such as `2/15`, across gameplay and
 demos. Compact recordings support live viewing and a seekable timeline with 0.5×–8× speeds.
 
+## Research demos (1.3.1)
+
+The native replay command now also opens research `.pvzdemo` files containing
+`pvz-rl/actions-v1`, including multiple plant/dig operations within one tick:
+
+```powershell
+pvz replay "PATH_TO_DEMO.pvzdemo" --watch --speed 2
+```
+
+A source launcher can reuse another environment without reinstalling its game:
+
+```powershell
+.\tools\watch_demo.ps1 -Replay "PATH_TO_DEMO.pvzdemo" -Python "E:/Projects/Tower-Defence-AI/PVZ-plant/.venv/Scripts/python.exe" -Speed 2
+# Add -VerifyOnly to check hashes without opening a window.
+```
+
+Use this checkout's updated installation. Old installed readers still report
+"incompatible replay version"; the research project's `pvz-rl replay FILE --watch`
+also works without changing its pinned training dependency. Replay files do not
+need conversion, and their recorded hashes and timing are retained.
+
 ## Play
 
 Python 3.12 or newer is required. From this folder on Windows:

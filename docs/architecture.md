@@ -34,7 +34,10 @@ flowchart LR
     Engine --> Snapshot[Complete JSON snapshot]
     UI --> Recorder[Action recorder]
     Recorder --> File[JSON or compressed demo with hashes]
-    File --> Replay
+    File --> Format[Replay format dispatch]
+    Format --> Replay
+    Format --> Instant[Research action-phase player]
+    Instant --> API
     File --> Metadata[Optional replay annotations]
     Metadata --> Context[Explicit presentation context]
     Context --> Renderer
@@ -226,3 +229,11 @@ identifier when rules and state semantics are unchanged: package 1.2.1 uses engi
 schema version 1. There is no migration across incompatible snapshot versions.
 Platform-independent integer rules are used, but cross-platform determinism has not yet
 been experimentally verified; the tested environment is Python 3.12.3 on Windows 11.
+
+## Research recording playback
+
+`Playback` accepts ordinary version 1 and `pvz-rl/actions-v1`. The latter dispatches
+into `action_replay`, which applies zero-time plant/dig operations between normal
+combat ticks. It has no learning-library dependency. Seeking includes all instant
+operations at the requested tick, verifies hashes, and preserves game identity.
+The normal Game API continues requiring positive ticks. Unknown formats fail.

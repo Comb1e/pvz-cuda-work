@@ -1,5 +1,20 @@
 # Iteration history
 
+## 1.3.1 — 2026-09-21
+
+- Problem: external training demos declared `pvz-rl/actions-v1`, while the native
+  reader accepted only version 1. Both use the same combat rules, but research
+  recordings may contain several planting/digging operations at one tick.
+- Improvement: dispatch that explicit format to a dependency-free action-phase
+  player. Reuse native seeking, rendering, metadata and hash verification; keep
+  ordinary Game.step and version-1 recordings unchanged.
+- Verification: successful, lost, truncated, instant-only, mid-game, compressed,
+  corrupt, cached-seek and viewer cases; the three completed research demos match
+  their original hashes and final ticks. See the current validation record.
+- Remaining limit: older installed readers need this update or `pvz-rl replay`.
+  This patch does not upgrade the research project's pinned simulation package.
+
+
 ## 1.3.0 — 2026-09-21
 
 ### Previous issue and root cause

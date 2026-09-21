@@ -224,6 +224,17 @@ class Recorder:
 class Playback:
     """Reproduce a recording one simulation tick at a time, checking each checkpoint."""
 
+    def __new__(cls, source):
+        # Native readers also accept the explicitly versioned research timeline.
+        # Ordinary version-1 recordings keep the original player and semantics.
+        if cls is Playback:
+            data = read_recording(source)
+            if data.get("replay_version") == "pvz-rl/actions-v1":
+                from .action_replay import ActionPhasePlayback
+
+                return object.__new__(ActionPhasePlayback)
+        return object.__new__(cls)
+
     def __init__(self, source: dict | str | Path):
         data = read_recording(source)
         if data.get("replay_version") != REPLAY_VERSION:
