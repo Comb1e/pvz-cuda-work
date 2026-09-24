@@ -72,7 +72,7 @@ def test_each_plant_all_zombies_order_and_integer_parity(cuda, plant):
     batch.reset([level], [42])
     game = Game()
     game.reset(level, 42)
-    for tick in range(1800):
+    for tick in range(9000):
         compare(batch, [game], [Wait()])
         if game.observe().status != Status.RUNNING:
             break
@@ -106,7 +106,7 @@ def test_seeded_legal_and_invalid_traces(cuda):
     game, rng = Game(), random.Random(7)
     game.reset("hard", 8)
     batch.reset(["hard"], [8])
-    for step in range(2600):
+    for step in range(13000):
         action = rng.choice(game.legal_actions()) if step % 9 == 0 else Wait()
         compare(batch, [game], [action], per_tick=True)
         if game.observe().status != Status.RUNNING:
@@ -145,7 +145,12 @@ def test_archived_success_and_failure_replay_hashes(cuda, level):
     from pvz_game.replay import decode_action
 
     payload = json.loads((Path(__file__).parent / "fixtures" / f"{level}-seed42.json").read_text())
-    batch = cuda(1, zombie_capacity=len(payload["initial"]["level"]["spawns"]), diagnostic=True)
+    batch = cuda(
+        1,
+        zombie_capacity=len(payload["initial"]["level"]["spawns"]),
+        diagnostic=True,
+        max_step_ticks=max(e["ticks"] for e in payload["entries"]),
+    )
     batch.restore([payload["initial"]])
     game = Game()
     game.restore(payload["initial"])
@@ -165,7 +170,7 @@ def test_restore_crowds_mower_sweep_and_signed_boundaries(cuda):
 
     level = LevelSpec(
         "crowded",
-        tuple(Spawn(1, k, i % 5, x=10) for i, k in enumerate(ZOMBIE_TYPES * 30)),
+        tuple(Spawn(1, k, i % 5, x=2) for i, k in enumerate(ZOMBIE_TYPES * 30)),
         initial_sun=200,
     )
     game = Game()

@@ -20,16 +20,16 @@ def test_economy_exact_cost_and_cooldown(make_game):
     result = game.step(Place("sunflower", 0, 0))
     assert result.action_result.accepted
     assert result.observation.sun == 0
-    assert result.observation.cards[0].cooldown_ticks == 149
+    assert result.observation.cards[0].cooldown_ticks == 749
     assert not game.step(Place("sunflower", 0, 1)).action_result.accepted
-    game.step(ticks=117)
-    assert game.observe().sun == 0  # First sunflower income at exactly tick 120.
+    game.step(ticks=597)
+    assert game.observe().sun == 0  # First sunflower income at exactly tick 600.
     game.step()
     assert game.observe().sun == 25
-    game.step(ticks=30)
+    game.step(ticks=150)
     assert game.observe().cards[0].cooldown_ticks == 0
     assert game.validate_action(Place("sunflower", 0, 1)).reason == "insufficient_sun"
-    game.step(ticks=50)
+    game.step(ticks=250)
     assert game.observe().sun == 50
     assert game.step(Place("sunflower", 0, 1)).action_result.accepted
 
@@ -88,11 +88,11 @@ def test_malformed_requests_are_atomic(make_game, action, ticks):
 
 def test_sun_production_matches_independent_arithmetic(make_game):
     game = make_game(sun=0, plants=(InitialPlant("sunflower", 0, 0),))
-    game.step(ticks=2000)
+    game.step(ticks=10000)
     # 100 seconds: sky at 10..100; sunflower at 6,30,54,78.
     assert game.observe().sun == 10 * 25 + 4 * 25
     capped = make_game(sun=9990, plants=(InitialPlant("sunflower", 0, 0),))
-    result = capped.step(ticks=200)
+    result = capped.step(ticks=1000)
     assert result.observation.sun == 9990
     assert all(e.get("amount") == 0 for e in result.events if e.kind == "SunProduced")
 
@@ -101,17 +101,17 @@ def test_ten_peas_kill_200_hp_at_analytical_tick(make_game):
     game = make_game(
         spawns=(Spawn(1, "basic", 0, x=1000),), plants=(InitialPlant("peashooter", 0, 0),)
     )
-    game.step(ticks=270)
+    game.step(ticks=1351)
     assert game.observe().zombies[0].health == 20
     result = game.step()
-    assert result.observation.tick == 1 + 9 * 30
+    assert result.observation.tick == 2 + 9 * 150
     assert result.status == Status.WON
     assert result.observation.counts.defeated == 1
 
 
 def test_nearest_target_lane_isolation_and_swept_projectile(make_game):
     def speed(raw):
-        raw["game"]["projectile_speed"] = 200
+        raw["game"]["projectile_speed"] = 1000
 
     game = make_game(
         spawns=(
@@ -136,7 +136,7 @@ def test_armor_absorbs_and_excess_reaches_health(make_game):
         plants=(InitialPlant("peashooter", 0, 0),),
         changes=damage,
     )
-    game.step()
+    game.step(ticks=2)
     z = game.observe().zombies[0]
     assert (z.armor, z.health) == (0, 150)
 
@@ -145,15 +145,15 @@ def test_repeater_burst_has_exact_spacing(make_game):
     game = make_game(
         spawns=(Spawn(1, "buckethead", 0, x=1000),), plants=(InitialPlant("repeater", 0, 0),)
     )
-    results = [game.step() for _ in range(34)]
+    results = [game.step() for _ in range(166)]
     fired = [e.tick for r in results for e in r.events if e.kind == "ProjectileFired"]
-    assert fired == [1, 4, 31, 34]
+    assert fired == [1, 16, 151, 166]
 
 
 def test_simultaneous_hits_do_not_double_count_death(make_game):
     def damage(raw):
         raw["plants"]["peashooter"]["damage"] = 200
-        raw["game"]["projectile_speed"] = 200
+        raw["game"]["projectile_speed"] = 1000
 
     game = make_game(
         spawns=(Spawn(1, "basic", 0, x=4000),),
@@ -175,7 +175,7 @@ def test_bomb_fuse_and_half_open_area_boundaries(make_game):
         ),
         plants=(InitialPlant("cherry_bomb", 2, 3),),
     )
-    game.step(ticks=23)
+    game.step(ticks=119)
     assert game.observe().counts.alive == 4
     result = game.step()
     assert result.observation.counts.defeated == 2
@@ -185,12 +185,12 @@ def test_bomb_fuse_and_half_open_area_boundaries(make_game):
 
 def test_mine_arms_exactly_and_detonates_before_vault(make_game):
     game = make_game(
-        spawns=(Spawn(279, "pole_vaulting", 0, x=1800),),
+        spawns=(Spawn(1399, "pole_vaulting", 0, x=1800),),
         plants=(InitialPlant("potato_mine", 0, 1),),
     )
-    game.step(ticks=278)
+    game.step(ticks=1398)
     assert game.observe().plants[0].state == "arming"
-    # Tick 279 starts the pole's vault; tick 280 mine triggers during its delay.
+    # Tick 1399 starts the pole's vault; tick 1400 mine triggers during its delay.
     game.step()
     result = game.step()
     assert result.status == Status.WON
@@ -202,7 +202,7 @@ def test_unarmed_mine_can_be_eaten(make_game):
     game = make_game(
         spawns=(Spawn(1, "basic", 0, x=1800),), plants=(InitialPlant("potato_mine", 0, 1),)
     )
-    game.step(ticks=60)
+    game.step(ticks=300)
     assert not game.observe().plants
     assert game.observe().counts.defeated == 0
 
@@ -215,7 +215,7 @@ def test_chomper_ignores_armor_and_digests(make_game):
     game.step()
     assert game.observe().counts.defeated == 1
     assert game.observe().plants[0].state == "digesting"
-    game.step(ticks=839)
+    game.step(ticks=4199)
     assert game.observe().counts.defeated == 1
     result = game.step()
     assert result.status == Status.WON
@@ -228,20 +228,20 @@ def test_slow_halves_movement_and_expires_without_stacking(make_game):
         spawns=(Spawn(1, "buckethead", 0, x=3000),),
         plants=(InitialPlant("snow_pea", 0, 0),),
     )
-    game.step(ticks=6)
+    game.step(ticks=30)
     z = game.observe().zombies[0]
     assert z.slow_ticks > 0
     # Remove the source so expiration can be measured without refreshing.
     game.step(Dig(0, 0))
     before = game.observe().zombies[0]
-    game.step(ticks=20)
+    game.step(ticks=100)
     after = game.observe().zombies[0]
     assert before.x - after.x == 100  # .1 tiles / second = half ordinary speed.
     remaining = after.slow_ticks
     game.step(ticks=remaining)
     before = game.observe().zombies[0]
     assert before.slow_ticks == 0
-    game.step(ticks=20)
+    game.step(ticks=100)
     assert before.x - game.observe().zombies[0].x == 200
 
 
@@ -249,9 +249,9 @@ def test_slow_refreshes_and_halves_biting(make_game):
     game = make_game(
         spawns=(Spawn(1, "buckethead", 0, x=800),), plants=(InitialPlant("snow_pea", 0, 0),)
     )
-    game.step(ticks=39)
+    game.step(ticks=199)
     assert game.observe().plants[0].health == 300
-    assert game.observe().zombies[0].slow_ticks > 170  # Refreshed by second pea.
+    assert game.observe().zombies[0].slow_ticks > 850  # Refreshed by second pea.
     game.step()
     assert game.observe().plants[0].health == 200
 
@@ -262,7 +262,7 @@ def test_pole_vaults_once_and_then_bites(make_game):
         spawns=(Spawn(1, "pole_vaulting", 0, x=3900),),
         plants=(InitialPlant("wall_nut", 0, 3), InitialPlant("wall_nut", 0, 1)),
     )
-    result = game.step(ticks=300)
+    result = game.step(ticks=1500)
     assert sum(e.kind == "VaultStarted" for e in result.events) == 1
     assert not result.observation.zombies[0].has_pole
     assert result.observation.zombies[0].state == "biting"
@@ -278,10 +278,10 @@ def test_removing_vault_target_does_not_change_landing(make_game):
     )
     game.step()
     assert game.observe().zombies[0].state == "vaulting"
-    game.step(Dig(0, 1), ticks=16)
+    game.step(Dig(0, 1), ticks=80)
     z = game.observe().zombies[0]
     assert z.state == "walking"
-    assert z.x == 790  # Lands at .8 tiles, then walks one normal tick.
+    assert z.x == 798  # Lands at .8 tiles, then walks one normal tick.
 
 
 def test_mower_catches_simultaneous_crossings_but_later_arrival_loses(make_game):
@@ -297,7 +297,7 @@ def test_mower_catches_simultaneous_crossings_but_later_arrival_loses(make_game)
     first = game.step()
     assert first.observation.counts.defeated == 2
     assert sum(e.kind == "MowerActivated" for e in first.events) == 1
-    game.step(ticks=200)
+    game.step(ticks=1000)
     assert game.observe().status == Status.LOST
     assert game.observe().counts.remaining == 1
 
@@ -307,11 +307,11 @@ def test_no_early_victory_and_spawn_death_counters(make_game):
         raw["plants"]["peashooter"]["damage"] = 200
 
     game = make_game(
-        spawns=(Spawn(1, "basic", 0, x=1000), Spawn(100, "basic", 0, x=1000)),
+        spawns=(Spawn(1, "basic", 0, x=1000), Spawn(500, "basic", 0, x=1000)),
         plants=(InitialPlant("peashooter", 0, 0),),
         changes=damage,
     )
-    result = game.step()
+    result = game.step(ticks=2)
     counts = result.observation.counts
     assert (
         counts.initial_total,
@@ -321,10 +321,10 @@ def test_no_early_victory_and_spawn_death_counters(make_game):
         counts.not_yet_spawned,
         counts.remaining,
     ) == (2, 1, 0, 1, 1, 1)
-    game.step(ticks=98)
+    game.step(ticks=497)
     assert game.observe().status == Status.RUNNING
     final = game.step(ticks=100)
-    assert final.ticks_advanced == 1
+    assert final.ticks_advanced == 2
     assert final.status == Status.WON
     with pytest.raises(GameFinishedError):
         game.step()

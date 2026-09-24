@@ -68,8 +68,8 @@ class Rules:
         g = raw["game"]
         for name in ("tick_rate", "rows", "cols", "units_per_tile"):
             integer(g[name], name, 1)
-        if (g["tick_rate"], g["rows"], g["cols"]) != (20, 5, 9):
-            raise ValueError("version 1 supports a 5x9 board at 20 Hz")
+        if (g["tick_rate"], g["rows"], g["cols"]) != (100, 5, 9):
+            raise ValueError("version 1.1 supports a 5x9 board at 100 Hz")
         if g["units_per_tile"] % 2:
             raise ValueError("units_per_tile must be even")
         rate, units = g["tick_rate"], g["units_per_tile"]

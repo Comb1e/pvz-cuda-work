@@ -29,7 +29,7 @@ def benchmark(level: str, seed: int, ticks: int) -> dict:
         "ticks": completed,
         "seconds": round(seconds, 4),
         "ticks_per_second": round(completed / seconds, 1),
-        "realtime_multiple": round(completed / seconds / 20, 1),
+        "realtime_multiple": round(completed / seconds / game.observe().tick_rate, 1),
         "workload": "wait-only full API; reset on completion; observation each tick",
         "python": platform.python_version(),
         "platform": platform.platform(),

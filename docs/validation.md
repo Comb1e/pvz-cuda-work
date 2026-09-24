@@ -1,3 +1,24 @@
+# 100 Hz release verification — 2026-09-23
+
+Package **1.4.0**, simulation **1.1.0**, pinned rule clock **100 ticks/second**.
+Complete game regression suite: **224 passed in 192.30 s** on the RTX 4070 laptop,
+using the existing research environment. Cache, bytecode, and temporary results
+were directed to the research artifacts directory, outside this checkout.
+
+The suite includes every plant/zombie mechanic, ordered CPU/CUDA snapshots and
+hashes, storage boundaries, resets, immediate actions, renderer purity, playback
+seeking and completion/rewind. New independent controls assert physical movement,
+shot intervals, preparation/production times and rejection of the old simulation
+version. Three replay fixtures retain victories: easy 16108 ticks, standard 30529,
+hard 42843. Tick rounding changes collision/attack timing, so old hashes and exact
+terminal tick values are intentionally incompatible. Sources still define durations
+in seconds and movement in units/second.
+
+The research integration separately verifies its timer-free observations, reward
+adapter and policy history. No formal training was launched for this game release.
+
+## Historical results
+
 # Native research replay verification — 2026-09-21
 
 - Complete game suite: **222 passed in 41.48 seconds**. Cache, bytecode and

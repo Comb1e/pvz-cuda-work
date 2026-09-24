@@ -51,7 +51,7 @@ public fields and excludes IDs, restrictions, schedules and RNG/seed metadata.
 Compact facts use base-HP damage and distinguish plant and mower killing blows,
 empty mower activations, activation sun, wall-nut damage and empty explosions.
 
-Simulation version remains `1.0.0` only with differential checks against Python.
+Simulation version remains `1.1.0` only with differential checks against Python.
 Research version 0.6.0 owns reward weights, task restrictions, timeout semantics,
 PPO, and automatic-reset bookkeeping. Native JSON/compact replay playback remains
 on the Python oracle; research GPU demonstrations must replay and match hashes

@@ -1,7 +1,7 @@
-version = "daytime-1.0"
+version = "daytime-1.1"
 
 [game]
-tick_rate = 20
+tick_rate = 100
 rows = 5
 cols = 9
 units_per_tile = 1000

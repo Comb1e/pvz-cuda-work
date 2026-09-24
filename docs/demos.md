@@ -30,7 +30,7 @@ no window, speed 1, and no overwrite. `output` is required.
 
 `actions` is a sequence of `ScheduledAction(tick, action)` using `Place`, `Dig`, and `Wait`.
 Ticks must be nonnegative integers in strictly increasing order. Tick 0 is before the first
-simulation tick; an operation at tick 200 happens after ten simulated seconds. Gaps contain
+simulation tick; an operation at tick 200 happens after two simulated seconds. Gaps contain
 waits. Two operations cannot share a tick. Each operation is applied exactly once.
 
 Malformed schedules fail before opening a window or creating output. An illegal gameplay
@@ -192,7 +192,7 @@ resolved configuration, timed actions, checkpoint hashes, final state hash/statu
 optional metadata. It contains privileged debugging data, including future spawns, and is
 not a policy observation. Seek caches and rendered frames are never written to the file.
 
-Package 1.2.1 retains simulation compatibility version 1.0.0. Existing JSON replays and
+Package 1.2.1 retains simulation compatibility version 1.1.0. Existing JSON replays and
 snapshots remain valid. Readers from before 1.2.0 need the demo decompressed to JSON or an upgrade to
 read compressed files. Source-pinned consumers adopt the new installation and source pin
 together. The format is specific to Lawn Lab and cannot be opened by StarCraft II.

@@ -61,7 +61,7 @@ The house boundary is x=-0.5.
 
 ## Time and outcome
 
-Simulation runs at 20 Hz. Rendering uses its own frame rate. Effects resolve in this order:
+Simulation runs at 100 Hz. Rendering uses its own frame rate. Effects resolve in this order:
 action, clock/cooldowns, spawn/sky income, plant behavior, projectiles, first death cleanup,
 zombie behavior, mowers, final cleanup, outcome. Stable ID order breaks other ties.
 

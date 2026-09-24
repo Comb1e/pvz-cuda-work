@@ -61,7 +61,7 @@ def test_session_matches_api_and_midgame_duration(tmp_path):
         with pytest.raises(RuntimeError):
             demo.step()
     assert result.ticks_recorded == 223
-    assert result.duration_seconds == 223 / 20
+    assert result.duration_seconds == 223 / 100
     assert result.final_hash == reference.state_hash()
     playback = Playback(result.path)
     assert playback.start_tick == 17 and playback.end_tick == 240
