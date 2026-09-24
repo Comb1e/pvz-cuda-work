@@ -4,7 +4,7 @@ Install `pvz-research-game` into the calling environment. The import name is `pv
 The core requires Python 3.12+ and no third-party runtime package.
 
 Package release `1.2.1` presents zombie progress as defeated/total. `PACKAGE_VERSION` identifies
-the package release; `ENGINE_VERSION = "1.0.0"` identifies compatible simulation state.
+the package release; `ENGINE_VERSION = "1.1.0"` identifies compatible simulation state.
 Observation, snapshot, and replay schemas remain version 1. Existing hashes remain valid.
 
 See [the demo interface](demos.md) for `DemoSession`, parameterized `generate_demo`, TOML
@@ -75,7 +75,7 @@ three single-tick waits produces the same complete state.
 | Field | Meaning |
 |---|---|
 | `api_version` | Observation schema version, currently 1 |
-| `tick`, `elapsed_seconds`, `tick_rate` | Integer time, derived seconds, and 20 ticks/second |
+| `tick`, `elapsed_seconds`, `tick_rate` | Integer time, derived seconds, and 100 ticks/second |
 | `units_per_tile`, `rows`, `cols` | Fixed-point scale (default 1000), board shape |
 | `level`, `status`, `sun` | Current level identity, outcome, and available sun |
 | `cards` | Type, cost, remaining cooldown ticks, full recharge ticks |
@@ -161,7 +161,7 @@ Snapshots include rules, their hash, the resolved scenario, RNG state, all entit
 timers, counters, and outcome. `json.dumps`/`json.loads` round trips are supported. A snapshot
 is an explicit privileged debugging export; do not use it as a policy observation by accident.
 
-Restore requires snapshot version 1, engine version 1.0.0, and identical rules. It validates
+Restore requires snapshot version 1, engine version 1.1.0, and identical rules. It validates
 entity/count invariants in a candidate instance before replacing the current game. Snapshot
 formats are versioned and are not a general-purpose save editor.
 
@@ -284,7 +284,7 @@ the presentation says `TRUNCATED`.
 ### Source pins for external consumers
 
 Source-pinned consumers must adopt the new package's Git commit and source manifest even
-though its simulation compatibility identifier remains `1.0.0`. Run
+though its simulation compatibility identifier remains `1.1.0`. Run
 `python tools/export_engine_pin.py` after committing the source to generate
 `dist/engine-lock-1.2.1.json`. The file contains the commit, package/simulation versions,
 rules hash, and SHA-256 hashes of every installed Python/TOML file, normalizing CRLF to LF.

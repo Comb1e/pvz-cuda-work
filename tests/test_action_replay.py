@@ -73,7 +73,7 @@ def test_native_loader_preserves_zero_actions_batches_seek_and_hash(tmp_path, su
 
 @pytest.mark.parametrize("mowers,outcome", [(True, "won"), (False, "lost")])
 def test_natural_outcome_overrides_external_cutoff(mowers, outcome):
-    data, _ = demo([(Place("sunflower", 1, 0), 0), (Wait(), 100)], mowers=mowers, spawn_tick=1)
+    data, _ = demo([(Place("sunflower", 1, 0), 0), (Wait(), 500)], mowers=mowers, spawn_tick=1)
     player = Playback(data)
     player.verify()
     assert player.display_outcome == outcome

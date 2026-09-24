@@ -14,8 +14,8 @@ def test_custom_generated_waves_are_deterministic():
     assert a.state_hash() == b.state_hash()
     assert a.observe().counts.initial_total == 3
     schedule = a.snapshot()["level"]["spawns"]
-    assert 200 <= schedule[0]["tick"] <= 260
-    assert all(600 <= s["tick"] <= 660 for s in schedule[1:])
+    assert 1000 <= schedule[0]["tick"] <= 1300
+    assert all(3000 <= s["tick"] <= 3300 for s in schedule[1:])
 
 
 @pytest.mark.parametrize(
@@ -25,7 +25,7 @@ def test_custom_generated_waves_are_deterministic():
         WaveSpec("bad", ((),)),
         WaveSpec("bad", (("unknown",),)),
         WaveSpec("bad", (("basic",),), jitter_seconds=25),
-        WaveSpec("bad", (("basic",),), preparation_seconds=0.03),
+        WaveSpec("bad", (("basic",),), preparation_seconds=0.003),
     ],
 )
 def test_invalid_generated_waves_rejected(wave):
@@ -41,7 +41,8 @@ def test_example_scenarios_load(filename, count):
 
 def test_moving_zombie_cannot_tunnel_through_a_projectile(make_game):
     def fast(raw):
-        raw["zombies"]["basic"]["speed"] = 40
+        raw["zombies"]["basic"]["speed"] = 200
+        raw["game"]["projectile_speed"] = 50
 
     game = make_game(
         changes=fast,
@@ -57,7 +58,8 @@ def test_moving_zombie_cannot_tunnel_through_a_projectile(make_game):
 
 def test_moving_mower_catches_a_zombie_crossing_its_old_position(make_game):
     def fast(raw):
-        raw["zombies"]["basic"]["speed"] = 4
+        raw["zombies"]["basic"]["speed"] = 20
+        raw["game"]["mower_speed"] = 25
 
     game = make_game(
         stationary=False,
@@ -75,9 +77,9 @@ def test_moving_mower_catches_a_zombie_crossing_its_old_position(make_game):
 
 def test_final_tick_attack_prevents_house_breach(make_game):
     def fast(raw):
-        raw["zombies"]["basic"]["speed"] = 200
+        raw["zombies"]["basic"]["speed"] = 1000
         raw["plants"]["peashooter"]["damage"] = 200
-        raw["game"]["projectile_speed"] = 200
+        raw["game"]["projectile_speed"] = 1000
 
     game = make_game(
         stationary=False,
@@ -90,7 +92,7 @@ def test_final_tick_attack_prevents_house_breach(make_game):
 
 def test_lost_game_cannot_be_relabelled_running(make_game):
     game = make_game(stationary=False, spawns=(Spawn(1, "basic", 0, x=0),))
-    game.step(ticks=60)
+    game.step(ticks=300)
     assert game.observe().status == Status.LOST
     snapshot = game.snapshot()
     snapshot["status"] = "running"

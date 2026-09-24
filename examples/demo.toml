@@ -1,7 +1,7 @@
 [demo]
 level = "standard"
 seed = 42
-max_ticks = 1200
+max_ticks = 6000
 
 [metadata]
 title = "A short garden demonstration"
@@ -14,14 +14,14 @@ row = 2
 col = 0
 
 [[actions]]
-tick = 200
+tick = 1000
 kind = "place"
 plant_type = "sunflower"
 row = 1
 col = 0
 
 [[actions]]
-tick = 600
+tick = 3000
 kind = "place"
 plant_type = "peashooter"
 row = 2

@@ -1,5 +1,14 @@
 # Iteration history
 
+## 1.4.0 — 2026-09-23
+
+The simulation clock is now 100 Hz, compatibility version 1.1.0. Second-based rules,
+integer movement remainders, and ordered CPU/CUDA mechanics retain their real-time
+definitions. Old recordings are incompatible; the three checked-in successful replay
+fixtures were rerun at the new resolution with new hashes. Tests use physical durations
+and include CPU/CUDA differential traces. Full verification is recorded in the research
+release validation record; no game-learning behavior is implemented here.
+
 ## 1.3.1 — 2026-09-21
 
 - Problem: external training demos declared `pvz-rl/actions-v1`, while the native

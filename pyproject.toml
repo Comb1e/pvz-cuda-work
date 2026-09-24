@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pvz-research-game"
-version = "1.3.1"
+version = "1.4.0"
 description = "A deterministic daytime lawn-defense game with a standalone Python control API"
 readme = "README.md"
 requires-python = ">=3.12"

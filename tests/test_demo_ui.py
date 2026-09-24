@@ -167,8 +167,11 @@ def test_long_seek_is_bounded_and_completion_stays_seekable(replay_app):
     assert "speed" in app.buttons and "restart" in app.buttons
     app.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_LEFT))
     finish_seek(app)
-    assert app.playback.current_tick == 700 and app.mode == Screen.PAUSED
+    assert app.playback.current_tick == 300 and app.mode == Screen.PAUSED
     assert app.playback.display_outcome == "running"
+    assert "accepted" in app.message
+    app.request_seek(700)
+    finish_seek(app)
     assert "occupied tile" in app.message
     app.handle_event(pygame.event.Event(pygame.KEYDOWN, key=pygame.K_HOME))
     finish_seek(app)

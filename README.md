@@ -8,11 +8,11 @@ Eight plants, five zombies, three scenarios, automatic sun collection, exact rem
 zombie counts, snapshots, and verified action replays are included. Training algorithms,
 rewards, tensor observations, and learning-framework wrappers belong to your external project.
 
-Version 1.3.0 adds an optional CUDA batch simulator ([API and setup](docs/cuda.md)).
+Version 1.4.0 runs at 100 Hz (simulation compatibility 1.1.0) and includes an optional CUDA batch simulator ([API and setup](docs/cuda.md)).
 The renderer shows zombie progress as defeated/total, such as `2/15`, across gameplay and
 demos. Compact recordings support live viewing and a seekable timeline with 0.5×–8× speeds.
 
-## Research demos (1.3.1)
+## Research demos
 
 The native replay command now also opens research `.pvzdemo` files containing
 `pvz-rl/actions-v1`, including multiple plant/dig operations within one tick:
@@ -28,10 +28,10 @@ A source launcher can reuse another environment without reinstalling its game:
 # Add -VerifyOnly to check hashes without opening a window.
 ```
 
-Use this checkout's updated installation. Old installed readers still report
-"incompatible replay version"; the research project's `pvz-rl replay FILE --watch`
-also works without changing its pinned training dependency. Replay files do not
-need conversion, and their recorded hashes and timing are retained.
+This release reads 100 Hz recordings only. Previous 20 Hz snapshots and replays
+have incompatible simulation versions and require their original engine; no conversion
+or legacy simulator is included. Research training installs a verified Git archive of
+this repository into its existing environment.
 
 ## Play
 
@@ -43,7 +43,7 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\pvz.exe play
 ```
 
-The implementation workspace already has this environment installed. Start a particular game:
+Start a particular game:
 
 ```powershell
 .\.venv\Scripts\pvz.exe play --level standard --seed 42
@@ -76,7 +76,7 @@ are not shown. All eight cards are available immediately.
 Install the core into that project's environment, without the UI extra:
 
 ```powershell
-python -m pip install -e E:\Projects\pvz
+python -m pip install -e E:\Projects\pvz-cuda-work
 ```
 
 ```python
@@ -98,7 +98,7 @@ while game.observe().status == Status.RUNNING:
 print(result.status)
 ```
 
-One tick is 0.05 simulated seconds. An action is applied once, before the requested ticks.
+One tick is 0.01 simulated seconds. An action is applied once, before the requested ticks.
 Every result includes detached state, events, action acceptance, status, and ticks advanced.
 There is no reward and no automatic time limit. See [the API contract](docs/api.md) and
 [the standalone integration example](examples/external_control.py).

@@ -17,7 +17,7 @@ flowchart LR
     Demo --> Live[Live preview]
     Live --> Renderer
     Replay[Replay playback] --> API
-    Rules[TOML rules and scenarios] --> Engine[20 Hz engine]
+    Rules[TOML rules and scenarios] --> Engine[100 Hz engine]
     Rules --> Resolve[CPU scenario resolution]
     Resolve --> GPU[CUDA arrays and ordered game kernels]
     External --> GPU
@@ -225,7 +225,7 @@ presentation context explicitly and decide when an external cutoff applies. Neit
 changes the engine's Running/Won/Lost state machine.
 
 Schema and engine versions are explicit. Package releases can share a simulation compatibility
-identifier when rules and state semantics are unchanged: package 1.2.1 uses engine 1.0.0 and
+identifier when rules and state semantics are unchanged: package 1.2.1 uses engine 1.1.0 and
 schema version 1. There is no migration across incompatible snapshot versions.
 Platform-independent integer rules are used, but cross-platform determinism has not yet
 been experimentally verified; the tested environment is Python 3.12.3 on Windows 11.
