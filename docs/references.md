@@ -52,3 +52,9 @@ The native adapter follows that contract and reuses native seek/hash machinery.
 Local evidence: the shared checkpoint `ce6b6fc3b480233c67b4009e6ce44d7412d2e2ef8fc7db8c047d34fe70fbb65e`
 has easy/standard/hard demos ending at ticks 4226/4184/5074 with matching hashes.
 This is a format compatibility fix, with no new learning or combat claim.
+
+
+## PC mechanics inspection — 2026-09-25
+
+- [Patoke PC reconstruction](https://github.com/Patoke/re-plants-vs-zombies/tree/c4692036c5e11d227c8fb7c593b734dac96da028): inspected Plant.cpp, Zombie.cpp, Board.cpp, SeedPacket.cpp, LawnMower.cpp and TodCommon.cpp; Reanimator.cpp supplies frame-rate conversion. Used for production ranges, firing phases, initial recharge, health, head loss, autonomous decay, bite age and mower slowdown. This is a community reconstruction, not an authoritative binary equivalence test.
+- [Animation reference](https://github.com/Bamcane/re-plants-vs-zombies/tree/0f6bbd39302acf69484ba8b3e071724e35cfba17/pak/reanim): inspected PotatoMine.reanim, Chomper.reanim, Zombie.reanim and Zombie_polevaulter.reanim for frame counts and ground-track structure. Only timing facts informed the independent implementation; no artwork/assets are included. Movement and tile collisions retain the limits documented in the mechanics derivation.

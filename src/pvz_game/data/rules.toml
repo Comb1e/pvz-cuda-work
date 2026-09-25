@@ -1,4 +1,4 @@
-version = "daytime-1.1"
+version = "daytime-1.2"
 
 [game]
 tick_rate = 100
@@ -8,26 +8,42 @@ units_per_tile = 1000
 initial_sun = 50
 sun_cap = 9990
 sky_sun_amount = 25
-sky_sun_seconds = 10
+sky_first_min_ticks = 425
+sky_first_max_ticks = 700
+sky_interval_base_ticks = 425
+sky_interval_increment_ticks = 10
+sky_interval_max_ticks = 950
+sky_interval_jitter_ticks = 274
 spawn_x = 9.5
 house_x = -0.5
 mower_trigger_x = 0
-mower_speed = 5
-projectile_speed = 10
+mower_speed = 4.163
+mower_min_speed = 1.25
+mower_hit_ticks = 50
+mower_first_hit_ticks = 25
+projectile_speed = 4.163
 projectile_offset = 0.3
 contact_offset = 0.3
-vault_seconds = 0.8
+vault_seconds = 1.8
 vault_distance = 1
-bite_seconds = 1
-bite_damage = 100
+bite_seconds = 0.04
+bite_damage = 4
 slow_seconds = 10
+slow_numerator = 2
+slow_denominator = 5
+headless_decay_chance = 5
+headless_damage = 1
+headless_large_damage = 3
+headless_large_health = 500
 
 [plants.sunflower]
 cost = 50
 health = 300
 recharge_seconds = 7.5
-first_seconds = 6
-interval_seconds = 24
+first_seconds = 3
+first_max_ticks = 1250
+interval_seconds = 23.5
+interval_max_ticks = 2500
 sun_amount = 25
 
 [plants.peashooter]
@@ -35,25 +51,31 @@ cost = 100
 health = 300
 recharge_seconds = 7.5
 interval_seconds = 1.5
+interval_jitter_ticks = 14
+windup_ticks = 32
 damage = 20
 
 [plants.wall_nut]
 cost = 50
 health = 4000
 recharge_seconds = 30
+initial_recharge_ticks = 2000
 
 [plants.cherry_bomb]
 cost = 150
 health = 300
 recharge_seconds = 50
-first_seconds = 1.2
+initial_recharge_ticks = 3500
+first_seconds = 1
 damage = 1800
 
 [plants.potato_mine]
 cost = 25
 health = 300
 recharge_seconds = 30
-first_seconds = 14
+initial_recharge_ticks = 2000
+first_seconds = 15
+rise_ticks = 106
 damage = 1800
 
 [plants.snow_pea]
@@ -61,44 +83,57 @@ cost = 175
 health = 300
 recharge_seconds = 7.5
 interval_seconds = 1.5
+interval_jitter_ticks = 14
+windup_ticks = 32
 damage = 20
 
 [plants.chomper]
 cost = 150
 health = 300
 recharge_seconds = 7.5
-interval_seconds = 42
+interval_seconds = 40
+bite_ticks = 70
+bite_animation_ticks = 105
+recovery_ticks = 234
 
 [plants.repeater]
 cost = 200
 health = 300
 recharge_seconds = 7.5
 interval_seconds = 1.5
-burst_seconds = 0.15
+interval_jitter_ticks = 14
+windup_ticks = 25
+burst_seconds = 0.25
 damage = 20
 
 [zombies.basic]
-health = 200
+health = 270
 armor = 0
-speed = 0.2
+speed = 0.135
+max_speed = 0.188
 
 [zombies.flag]
-health = 200
+health = 270
 armor = 0
-speed = 0.24
+speed = 0.264
+max_speed = 0.264
 
 [zombies.conehead]
-health = 200
-armor = 400
-speed = 0.2
+health = 270
+armor = 370
+speed = 0.135
+max_speed = 0.188
 
 [zombies.buckethead]
-health = 200
+health = 270
 armor = 1100
-speed = 0.2
+speed = 0.135
+max_speed = 0.188
 
 [zombies.pole_vaulting]
-health = 400
+health = 500
 armor = 0
-speed = 0.2
-pole_speed = 0.4
+speed = 0.135
+max_speed = 0.188
+pole_speed = 0.388
+pole_max_speed = 0.400

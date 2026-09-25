@@ -88,6 +88,16 @@ def kernel_source(rules, zombie_capacity, projectile_capacity, event_capacity, d
     prefix = ["typedef long long I;"]
     prefix.extend(f"#define G_{k} {v}LL" for k, v in rules.game.items())
     prefix.extend(
+        f"#define GAME_{name}_WIDTH {len(fields)}"
+        for name, fields in (
+            ("HEADER", s.HEADER),
+            ("PLANT", s.PLANT),
+            ("ZOMBIE", s.ZOMBIE),
+            ("PROJECTILE", s.PROJECTILE),
+            ("MOWER", s.MOWER),
+        )
+    )
+    prefix.extend(
         f"#define {k} {int(v)}"
         for k, v in {
             "ZCAP": zombie_capacity,
@@ -105,10 +115,20 @@ def kernel_source(rules, zombie_capacity, projectile_capacity, event_capacity, d
         "PR": (rules.plants, PLANT_TYPES, "recharge_ticks"),
         "PD": (rules.plants, PLANT_TYPES, "damage"),
         "PS": (rules.plants, PLANT_TYPES, "sun_amount"),
+        "PFMAX": (rules.plants, PLANT_TYPES, "first_max_ticks"),
+        "PIMAX": (rules.plants, PLANT_TYPES, "interval_max_ticks"),
+        "PJ": (rules.plants, PLANT_TYPES, "interval_jitter_ticks"),
+        "PW": (rules.plants, PLANT_TYPES, "windup_ticks"),
+        "PRISE": (rules.plants, PLANT_TYPES, "rise_ticks"),
+        "PBITE": (rules.plants, PLANT_TYPES, "bite_ticks"),
+        "PANIM": (rules.plants, PLANT_TYPES, "bite_animation_ticks"),
+        "PRECOVER": (rules.plants, PLANT_TYPES, "recovery_ticks"),
         "ZH": (rules.zombies, ZOMBIE_TYPES, "health"),
         "ZA": (rules.zombies, ZOMBIE_TYPES, "armor"),
         "ZS": (rules.zombies, ZOMBIE_TYPES, "speed"),
         "ZP": (rules.zombies, ZOMBIE_TYPES, "pole_speed"),
+        "ZSMAX": (rules.zombies, ZOMBIE_TYPES, "max_speed"),
+        "ZPMAX": (rules.zombies, ZOMBIE_TYPES, "pole_max_speed"),
     }
     for name, (group, kinds, key) in arrays.items():
         values = [group[k].get(key, group[k].get("speed", 0) if name == "ZP" else 0) for k in kinds]
@@ -354,7 +374,17 @@ class CudaBatch:
         if raw is None:
             raise RuntimeError("Reset before taking snapshots")
         header = dict(zip(s.HEADER, self.header[index].get().tolist()))
-        for key in ("tick", "sun", "next_id", "spawn_index", "defeated", "wave"):
+        for key in (
+            "tick",
+            "sun",
+            "next_id",
+            "spawn_index",
+            "defeated",
+            "wave",
+            "gameplay_rng",
+            "sky_due",
+            "sky_drops",
+        ):
             raw[key] = header[key]
         raw["status"] = s.STATUSES[header["status"]]
         raw["cooldowns"] = dict(zip(PLANT_TYPES, self.cooldowns[index].get().tolist()))
@@ -372,7 +402,7 @@ class CudaBatch:
                     item["kind"] = kinds[item["kind"]]
                 if states:
                     item["state"] = states[item["state"]]
-                for key in ("icy", "has_pole"):
+                for key in ("icy", "has_pole", "headless"):
                     if key in item:
                         item[key] = bool(item[key])
                 raw[group].append(item)

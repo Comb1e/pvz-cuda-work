@@ -215,3 +215,20 @@ performance in this release. Package 1.2.1 deliberately retains engine version 1
 version 1, so existing 1.0.0/1.1.0 snapshots/replays remain compatible. Migration across incompatible
 engine/schema versions is not provided. Replay annotations are caller-supplied and are not
 authenticated by simulation hashes. Rendering requires the optional pygame-ce dependency.
+
+
+## 1.5.0 verification — 2026-09-25
+
+The maintained suite contains 226 tests. The full pass completed 225 tests; the
+remaining crowd boundary control still assumed the old movement speed. Its
+independent expected crossings are 60 neutralizations on tick one (flag/pole
+lanes) and 150 on tick two; that corrected control passed separately. CPU/CUDA
+comparisons cover all eight plants, five zombie types, public events, complete
+snapshots, hashes, gameplay RNG continuation, headless decay and mixed resets.
+Ruff passes. No learning run was launched.
+
+The public-observation acceptance controller wins easy, standard and hard at
+ticks 14,788 / 29,334 / 43,454, respectively, with five mowers still ready.
+Their regenerated acceptance recordings replay exactly. These are game
+correctness controls, not agent performance results. See the mechanics
+derivation for the retained animation-free movement and collision limits.

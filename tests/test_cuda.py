@@ -178,9 +178,10 @@ def test_restore_crowds_mower_sweep_and_signed_boundaries(cuda):
     batch = cuda(1, zombie_capacity=150, diagnostic=True, max_step_ticks=1)
     batch.reset([level], [3])
     compare(batch, [game], [Wait()])
-    # 120 ordinary zombies move to/cross the trigger; remaining pole zombies
-    # also cross. Simultaneous mower damage uses each row's original order.
-    assert game.observe().counts.defeated > 100
+    # Flag and pole lanes cross on tick one; ordinary walkers need tick two.
+    assert game.observe().counts.defeated == 60
+    compare(batch, [game], [Wait()])
+    assert game.observe().counts.defeated == 150
     later = Game()
     later.reset(
         LevelSpec(
@@ -200,3 +201,28 @@ def test_restore_crowds_mower_sweep_and_signed_boundaries(cuda):
     assert restored.state_hash(0) == later.state_hash()
     for _ in range(25):
         compare(restored, [later], [Wait()])
+
+
+@pytest.mark.parametrize("kind,hp", [("basic", 89), ("pole_vaulting", 165)])
+def test_headless_decay_and_rng_restore_match_cpu(cuda, kind, hp):
+    game = Game()
+    game.reset(
+        LevelSpec(
+            "decay",
+            (Spawn(1, kind, 0, x=800), Spawn(5000, "basic", 4)),
+            plants=(InitialPlant("wall_nut", 0, 0),),
+        ),
+        99,
+    )
+    game.step()
+    z = next(iter(game._zombies.values()))
+    game._damage(z, z.health - hp, 123)
+    snapshot = game.snapshot()
+    batch = cuda(1, zombie_capacity=2, diagnostic=True, max_step_ticks=1)
+    batch.restore([snapshot])
+    plant_hp = game.observe().plants[0].health
+    for _ in range(600):
+        compare(batch, [game], [Wait()])
+    assert game.observe().counts.defeated == 1
+    assert game.observe().plants[0].health == plant_hp
+    assert game.observe().mowers[0].state == "ready"

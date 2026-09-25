@@ -7,6 +7,7 @@ import random
 from dataclasses import asdict, dataclass
 
 from .config import PLANT_TYPES, LevelSpec, Rules, WaveSpec, canonical_hash, integer, resolve_level
+from .randomness import initial_state, next_u32
 from .types import (
     API_VERSION,
     ENGINE_VERSION,
@@ -58,6 +59,10 @@ class _Zombie:
     bite_progress: int = 0
     move_remainder: int = 0
     target_id: int = 0
+    headless: bool = False
+    age: int = 0
+    speed: int = 0
+    pole_speed: int = 0
 
 
 @dataclass(slots=True)
@@ -76,6 +81,7 @@ class _Mower:
     x: int
     state: str = "ready"
     move_remainder: int = 0
+    chomp_ticks: int = 0
 
 
 class Game:
@@ -94,7 +100,13 @@ class Game:
         self._tick = 0
         self._status = Status.RUNNING
         self._sun = self._g["initial_sun"] if resolved.initial_sun is None else resolved.initial_sun
-        self._cooldowns = dict.fromkeys(PLANT_TYPES, 0)
+        self._gameplay_rng = initial_state(seed)
+        self._sky_drops = 0
+        self._sky_due = self._random(self._g["sky_first_min_ticks"], self._g["sky_first_max_ticks"])
+        self._cooldowns = {
+            kind: self.rules.plants[kind].get("initial_recharge_ticks", -1) + 1
+            for kind in PLANT_TYPES
+        }
         self._plants: dict[int, _Plant] = {}
         self._zombies: dict[int, _Zombie] = {}
         self._projectiles: dict[int, _Projectile] = {}
@@ -118,6 +130,10 @@ class Game:
     def _require_ready(self):
         if not self._ready:
             raise RuntimeError("call reset before using the game")
+
+    def _random(self, minimum: int, maximum: int) -> int:
+        self._gameplay_rng = next_u32(self._gameplay_rng)
+        return minimum + self._gameplay_rng % (maximum - minimum + 1)
 
     def _id(self) -> int:
         value = self._next_id
@@ -180,7 +196,7 @@ class Game:
             if isinstance(action, Place):
                 spec = self.rules.plants[action.plant_type]
                 self._sun -= spec["cost"]
-                self._cooldowns[action.plant_type] = spec["recharge_ticks"]
+                self._cooldowns[action.plant_type] = spec["recharge_ticks"] + 1
                 self._add_plant(action.plant_type, action.row, action.col)
             elif isinstance(action, Dig):
                 self._remove_plant(self._tiles[action.row, action.col], "dug")
@@ -207,6 +223,10 @@ class Game:
             state,
             self._tick + spec.get("first_ticks", 0),
         )
+        if kind == "sunflower":
+            p.due = self._tick + self._random(spec["first_ticks"], spec["first_max_ticks"])
+        elif kind in ("peashooter", "snow_pea", "repeater"):
+            p.due = self._tick + self._random(0, spec["interval_ticks"])
         self._plants[p.id] = p
         self._tiles[row, col] = p.id
         self._emit("PlantPlaced", p.id, plant_type=kind, row=row, col=col)
@@ -245,13 +265,25 @@ class Game:
                 spec["armor"],
                 "carrying_pole" if pole else "walking",
                 has_pole=pole,
+                speed=self._random(spec["speed"], spec["max_speed"]),
+                pole_speed=self._random(spec["pole_speed"], spec["pole_max_speed"]) if pole else 0,
             )
             self._zombies[z.id] = z
             self._spawn_index += 1
             self._wave = max(self._wave, spawn.wave)
             self._emit("ZombieSpawned", z.id, zombie_type=z.kind, row=z.row, wave=spawn.wave)
-        if self._tick % self._g["sky_sun_ticks"] == 0:
+        if self._tick >= self._sky_due:
             self._sun_income(self._g["sky_sun_amount"], "sky")
+            self._sky_drops += 1
+            self._sky_due = (
+                self._tick
+                + min(
+                    self._g["sky_interval_max_ticks"],
+                    self._g["sky_interval_base_ticks"]
+                    + self._sky_drops * self._g["sky_interval_increment_ticks"],
+                )
+                + self._random(0, self._g["sky_interval_jitter_ticks"])
+            )
         self._advance_plants()
         self._advance_projectiles()
         self._clear_dead()
@@ -262,9 +294,9 @@ class Game:
         for pid, p in list(self._plants.items()):
             if p.health <= 0:
                 self._remove_plant(pid, "eaten")
-        if any(z.x <= self._g["house_x"] for z in self._zombies.values()):
+        if any(not z.headless and z.x <= self._g["house_x"] for z in self._zombies.values()):
             self._status = Status.LOST
-        elif not self._zombies and self._spawn_index == len(self._level.spawns):
+        elif self._defeated == len(self._level.spawns):
             self._status = Status.WON
         if self._status != Status.RUNNING:
             self._emit("GameEnded", outcome=self._status.value)
@@ -272,12 +304,18 @@ class Game:
     def _center(self, p: _Plant) -> int:
         return p.col * self._g["units_per_tile"] + self._g["units_per_tile"] // 2
 
-    def _targets(self, row: int, left: int, right: int | None = None) -> list[_Zombie]:
+    def _targets(
+        self, row: int, left: int, right: int | None = None, *, headed=False
+    ) -> list[_Zombie]:
         return sorted(
             (
                 z
                 for z in self._zombies.values()
-                if z.health > 0 and z.row == row and z.x >= left and (right is None or z.x <= right)
+                if z.health > 0
+                and z.row == row
+                and z.x >= left
+                and (right is None or z.x <= right)
+                and (not headed or not z.headless)
             ),
             key=lambda z: (z.x, z.id),
         )
@@ -299,14 +337,21 @@ class Game:
             health_damage=old_health - z.health,
             armor_damage=old_armor - z.armor,
         )
+        if not z.headless and z.health < self.rules.zombies[z.kind]["health"] // 3:
+            z.headless = True
+            z.has_pole = False
+            z.bite_progress = z.target_id = 0
+            self._defeated += 1
+            self._emit("ZombieDefeated", z.id, zombie_type=z.kind, row=z.row)
+            if z.health > 0:
+                self._emit("ZombieHeadLost", z.id)
 
     def _clear_dead(self):
         for zid, z in list(self._zombies.items()):
             if z.health <= 0:
                 z.state = "dead"
                 del self._zombies[zid]
-                self._defeated += 1
-                self._emit("ZombieDefeated", zid, zombie_type=z.kind, row=z.row)
+                self._emit("ZombieRemoved", zid)
 
     def _shoot(self, p: _Plant):
         spec = self.rules.plants[p.kind]
@@ -333,8 +378,9 @@ class Game:
 
     def _swallow(self, p: _Plant, z: _Zombie):
         self._damage(z, 0, p.id, swallow=True)
-        p.state = "digesting"
-        p.due = self._tick + self.rules.plants[p.kind]["interval_ticks"]
+        p.state = "biting_got_one"
+        spec = self.rules.plants[p.kind]
+        p.due = self._tick + spec["bite_animation_ticks"] - spec["bite_ticks"]
         self._emit("ZombieSwallowed", z.id, source=p.id)
 
     def _advance_plants(self):
@@ -345,38 +391,66 @@ class Game:
             if p.kind == "sunflower":
                 if self._tick >= p.due:
                     self._sun_income(spec["sun_amount"], "sunflower", p.id)
-                    p.due = self._tick + spec["interval_ticks"]
+                    p.due = self._tick + self._random(
+                        spec["interval_ticks"], spec["interval_max_ticks"]
+                    )
             elif p.kind in ("peashooter", "snow_pea", "repeater"):
                 if p.burst_due and self._tick >= p.burst_due:
                     self._shoot(p)
                     p.burst_due = 0
-                if self._tick >= p.due and self._targets(p.row, center):
-                    self._shoot(p)
-                    p.due = self._tick + spec["interval_ticks"]
-                    if p.kind == "repeater":
-                        p.burst_due = self._tick + spec["burst_ticks"]
+                launch = self._tick >= p.due
+                if launch:
+                    p.due = (
+                        self._tick
+                        + spec["interval_ticks"]
+                        - self._random(0, spec["interval_jitter_ticks"])
+                    )
+                if (
+                    launch or (p.kind == "repeater" and p.due - self._tick == spec["burst_ticks"])
+                ) and self._targets(p.row, center):
+                    p.burst_due = self._tick + spec["windup_ticks"]
             elif p.kind == "cherry_bomb" and self._tick >= p.due:
                 self._detonate(p)
             elif p.kind == "potato_mine":
                 if p.state == "arming" and self._tick >= p.due:
+                    p.state = "rising"
+                    p.due = self._tick + spec["rise_ticks"]
+                elif p.state == "rising" and self._tick >= p.due:
                     p.state = "armed"
                     self._emit("MineArmed", p.id)
                 if p.state == "armed" and self._targets(
-                    p.row, p.col * unit, (p.col + 1) * unit - 1
+                    p.row, p.col * unit, (p.col + 1) * unit - 1, headed=True
                 ):
                     self._detonate(p)
             elif p.kind == "chomper":
-                if p.state == "digesting" and self._tick >= p.due:
+                if p.state == "biting" and self._tick >= p.due:
+                    targets = self._targets(p.row, center, center + unit, headed=True)
+                    if targets and not targets[0].has_pole and targets[0].state != "vaulting":
+                        self._swallow(p, targets[0])
+                    else:
+                        p.state = "recovering"
+                        p.due = self._tick + spec["bite_animation_ticks"] - spec["bite_ticks"]
+                elif p.state == "biting_got_one" and self._tick >= p.due:
+                    p.state = "digesting"
+                    p.due = self._tick + spec["interval_ticks"]
+                elif p.state == "digesting" and self._tick >= p.due:
+                    p.state = "recovering"
+                    p.due = self._tick + spec["recovery_ticks"]
+                elif p.state == "recovering" and self._tick >= p.due:
                     p.state = "ready"
                 if p.state == "ready":
-                    targets = self._targets(p.row, center, center + unit)
+                    targets = self._targets(p.row, center, center + unit, headed=True)
                     if targets:
-                        self._swallow(p, targets[0])
+                        p.state = "biting"
+                        p.due = self._tick + spec["bite_ticks"]
 
     def _distance(self, entity, speed: int, *, slowed: bool = False) -> int:
         # A fixed denominator also preserves remainders when slow starts or expires.
-        numerator = speed * (1 if slowed else 2) + entity.move_remainder
-        distance, entity.move_remainder = divmod(numerator, self._g["tick_rate"] * 2)
+        denominator = self._g["slow_denominator"]
+        numerator = (
+            speed * (self._g["slow_numerator"] if slowed else denominator) + entity.move_remainder
+        )
+        distance, entity.move_remainder = divmod(numerator, self._g["tick_rate"] * denominator)
         return distance
 
     def _advance_projectiles(self):
@@ -399,6 +473,18 @@ class Game:
         for z in list(self._zombies.values()):
             if z.health <= 0:
                 continue
+            z.age += 1
+            if z.headless and self._random(0, self._g["headless_decay_chance"] - 1) == 0:
+                amount = (
+                    self._g["headless_large_damage"]
+                    if self.rules.zombies[z.kind]["health"] >= self._g["headless_large_health"]
+                    else self._g["headless_damage"]
+                )
+                damage = min(z.health, amount)
+                z.health -= damage
+                self._emit("ZombieDecayed", z.id, damage=damage)
+                if z.health <= 0:
+                    continue
             if z.state == "vaulting":
                 if self._tick < z.vault_until:
                     continue
@@ -406,8 +492,7 @@ class Game:
                 z.state = "walking"
                 self._emit("VaultFinished", z.id)
             slowed = self._tick < z.slow_until
-            spec = self.rules.zombies[z.kind]
-            speed = spec.get("pole_speed", spec["speed"]) if z.has_pole else spec["speed"]
+            speed = z.pole_speed if z.has_pole else z.speed
             end = z.x - self._distance(z, speed, slowed=slowed)
             # Nearest plant crossed while moving left, including the current bite target.
             blocking = sorted(
@@ -415,6 +500,7 @@ class Game:
                     p
                     for p in self._plants.values()
                     if p.row == z.row
+                    and not z.headless
                     and p.health > 0
                     and end <= self._center(p) + self._g["contact_offset"] <= z.x
                 ),
@@ -427,13 +513,10 @@ class Game:
                 continue
             p = blocking[0]
             self._move_zombie(z, self._center(p) + self._g["contact_offset"])
-            if z.health <= 0:
+            if z.health <= 0 or z.headless:
                 continue
             if p.kind == "potato_mine" and p.state == "armed":
                 self._detonate(p)
-                continue
-            if p.kind == "chomper" and p.state == "ready":
-                self._swallow(p, z)
                 continue
             if z.has_pole:
                 z.has_pole = False
@@ -447,9 +530,10 @@ class Game:
                 z.bite_progress = 0
                 z.target_id = p.id
             z.state = "biting"
-            z.bite_progress += 1 if slowed else 2
-            if z.bite_progress >= self._g["bite_ticks"] * 2:
-                z.bite_progress -= self._g["bite_ticks"] * 2
+            if (
+                p.kind != "cherry_bomb"
+                and z.age % (self._g["bite_ticks"] * (2 if slowed else 1)) == 0
+            ):
                 damage = min(p.health, self._g["bite_damage"])
                 p.health -= damage
                 self._emit("PlantDamaged", p.id, source=z.id, damage=damage)
@@ -474,17 +558,28 @@ class Game:
     def _advance_mowers(self):
         for mower in self._mowers:
             if mower.state == "ready" and any(
-                z.health > 0 and z.row == mower.row and z.x <= self._g["mower_trigger_x"]
+                z.health > 0
+                and not z.headless
+                and z.row == mower.row
+                and z.x <= self._g["mower_trigger_x"]
                 for z in self._zombies.values()
             ):
                 mower.state = "moving"
+                mower.chomp_ticks = self._g["mower_first_hit_ticks"]
                 self._emit("MowerActivated", row=mower.row)
                 # Include every zombie that crossed the trigger in this same tick.
                 for z in self._zombies.values():
                     if z.row == mower.row and z.x <= mower.x:
                         self._damage(z, 0, -mower.row - 1, swallow=True)
             if mower.state == "moving":
-                end = mower.x + self._distance(mower, self._g["mower_speed"])
+                speed = self._g["mower_speed"]
+                if mower.chomp_ticks:
+                    mower.chomp_ticks -= 1
+                    span = self._g["mower_hit_ticks"]
+                    speed = self._g["mower_min_speed"] + (
+                        (speed - self._g["mower_min_speed"]) * (span - 2 * mower.chomp_ticks) ** 2
+                    ) // (span * span)
+                end = mower.x + self._distance(mower, speed)
                 for z in self._zombies.values():
                     if (
                         z.row == mower.row
@@ -493,6 +588,7 @@ class Game:
                         and self._previous_x.get(z.id, z.x) >= mower.x
                     ):
                         self._damage(z, 0, -mower.row - 1, swallow=True)
+                        mower.chomp_ticks = self._g["mower_hit_ticks"]
                 mower.x = end
                 if mower.x > self._g["spawn_x"]:
                     mower.state = "spent"
@@ -555,6 +651,7 @@ class Game:
                     // (1 if self._tick < z.slow_until else 2)
                     if z.state == "biting"
                     else 0,
+                    z.headless,
                 )
                 for z in self._zombies.values()
             ),
@@ -568,7 +665,7 @@ class Game:
             ZombieCounts(
                 len(self._level.spawns),
                 self._spawn_index,
-                len(self._zombies),
+                sum(not z.headless for z in self._zombies.values()),
                 self._defeated,
                 len(self._level.spawns) - self._spawn_index,
                 remaining,
@@ -586,6 +683,9 @@ class Game:
             "level": self._level.to_dict(),
             "seed": self._seed,
             "rng_state": copy.deepcopy(self._rng.getstate()),
+            "gameplay_rng": self._gameplay_rng,
+            "sky_due": self._sky_due,
+            "sky_drops": self._sky_drops,
             "tick": self._tick,
             "status": self._status.value,
             "sun": self._sun,
@@ -627,9 +727,17 @@ class Game:
                 raise ValueError("invalid cooldown keys")
             for k, v in candidate._cooldowns.items():
                 integer(v, "cooldown")
-                if v > self.rules.plants[k]["recharge_ticks"]:
+                if v > self.rules.plants[k]["recharge_ticks"] + 1:
                     raise ValueError("cooldown exceeds recharge")
-            for attr in ("next_id", "spawn_index", "defeated", "wave"):
+            for attr in (
+                "next_id",
+                "spawn_index",
+                "defeated",
+                "wave",
+                "gameplay_rng",
+                "sky_due",
+                "sky_drops",
+            ):
                 setattr(candidate, "_" + attr, integer(data[attr], attr))
             candidate._plants = {p["id"]: _Plant(**p) for p in data["plants"]}
             candidate._zombies = {z["id"]: _Zombie(**z) for z in data["zombies"]}
@@ -656,8 +764,10 @@ class Game:
             raise ValueError("invalid entity IDs")
         if self._next_id <= max(ids, default=0) or self._sun > g["sun_cap"]:
             raise ValueError("invalid next ID or sun")
-        if self._spawn_index > len(self._level.spawns) or self._spawn_index != self._defeated + len(
-            self._zombies
+        if not 0 < self._gameplay_rng <= 0xFFFFFFFF or self._sky_due <= self._tick:
+            raise ValueError("invalid gameplay RNG or sky countdown")
+        if self._spawn_index > len(self._level.spawns) or self._spawn_index != self._defeated + sum(
+            not z.headless for z in self._zombies.values()
         ):
             raise ValueError("inconsistent zombie counts")
         expected_spawns = sum(s.tick <= self._tick for s in self._level.spawns)
@@ -672,7 +782,18 @@ class Game:
                 or not 0 <= p.col < g["cols"]
                 or p.health <= 0
                 or p.health > self.rules.plants[p.kind]["health"]
-                or p.state not in ("ready", "arming", "armed", "fusing", "digesting")
+                or p.state
+                not in (
+                    "ready",
+                    "arming",
+                    "armed",
+                    "fusing",
+                    "digesting",
+                    "rising",
+                    "biting",
+                    "biting_got_one",
+                    "recovering",
+                )
             ):
                 raise ValueError("invalid plant state")
         for z in self._zombies.values():
@@ -706,7 +827,7 @@ class Game:
                 for key, value in asdict(entity).items():
                     if key in ("kind", "state"):
                         continue
-                    if key in ("icy", "has_pole"):
+                    if key in ("icy", "has_pole", "headless"):
                         if type(value) is not bool:
                             raise ValueError(f"{key} must be boolean")
                     elif type(value) is not int:
@@ -714,14 +835,14 @@ class Game:
                     elif key not in ("x", "landing_x") and value < 0:
                         raise ValueError(f"{key} must be nonnegative")
                 if hasattr(entity, "move_remainder") and not (
-                    0 <= entity.move_remainder < g["tick_rate"] * 2
+                    0 <= entity.move_remainder < g["tick_rate"] * g["slow_denominator"]
                 ):
                     raise ValueError("invalid movement remainder")
         for p in self._plants.values():
             allowed = {
-                "potato_mine": ("arming", "armed"),
+                "potato_mine": ("arming", "rising", "armed"),
                 "cherry_bomb": ("fusing",),
-                "chomper": ("ready", "digesting"),
+                "chomper": ("ready", "biting", "biting_got_one", "digesting", "recovering"),
             }.get(p.kind, ("ready",))
             if p.state not in allowed:
                 raise ValueError("plant state does not match type")
@@ -735,7 +856,7 @@ class Game:
         for p in self._projectiles.values():
             if not 0 <= p.row < g["rows"] or p.damage < 0:
                 raise ValueError("invalid projectile")
-        breached = any(z.x <= g["house_x"] for z in self._zombies.values())
+        breached = any(not z.headless and z.x <= g["house_x"] for z in self._zombies.values())
         if (self._status == Status.LOST) != breached:
             raise ValueError("game outcome does not match house boundary")
 

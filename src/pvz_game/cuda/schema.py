@@ -1,12 +1,24 @@
 """Versioned numeric storage and public event schema shared with CUDA kernels."""
 
-SCHEMA_VERSION = 1
-HEADER = "tick status sun next_id spawn_index defeated wave total_waves total_spawns np nz nq accepted reason advanced allowed dig enabled".split()
+SCHEMA_VERSION = 2
+HEADER = "tick status sun next_id spawn_index defeated wave total_waves total_spawns np nz nq accepted reason advanced allowed dig enabled gameplay_rng sky_due sky_drops".split()
 PLANT = "id kind row col health state due burst_due".split()
-ZOMBIE = "id kind row x health armor state slow_until has_pole vault_until landing_x bite_progress move_remainder target_id previous_x".split()
+ZOMBIE = "id kind row x health armor state slow_until has_pole vault_until landing_x bite_progress move_remainder target_id previous_x headless age speed pole_speed".split()
 PROJECTILE = "id row x damage icy move_remainder".split()
-MOWER = "row x state move_remainder".split()
-PLANT_STATES = ("ready", "arming", "armed", "fusing", "digesting", "exploding", "detonating")
+MOWER = "row x state move_remainder chomp_ticks".split()
+PLANT_STATES = (
+    "ready",
+    "arming",
+    "armed",
+    "fusing",
+    "digesting",
+    "exploding",
+    "detonating",
+    "rising",
+    "biting",
+    "biting_got_one",
+    "recovering",
+)
 ZOMBIE_STATES = ("walking", "carrying_pole", "vaulting", "biting", "dead")
 MOWER_STATES = ("ready", "moving", "spent")
 STATUSES = ("running", "won", "lost")
@@ -40,5 +52,8 @@ EVENTS = (
     ("MowerActivated", ("row",)),
     ("MowerSpent", ("row",)),
     ("GameEnded", ("outcome",)),
+    ("ZombieHeadLost", ()),
+    ("ZombieRemoved", ()),
+    ("ZombieDecayed", ("damage",)),
 )
 FACTS = "plant_kills mower_kills nonlethal_health_damage nonlethal_damage_fraction empty_mower_activations mower_activations mower_activation_sun wall_nut_damage empty_explosions".split()

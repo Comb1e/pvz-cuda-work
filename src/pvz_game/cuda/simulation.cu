@@ -9,18 +9,19 @@ struct Plant {
 };
 struct Zombie {
   I id, kind, row, x, health, armor, state, slow_until, has_pole, vault_until,
-      landing_x, bite_progress, move_remainder, target_id, previous_x;
+      landing_x, bite_progress, move_remainder, target_id, previous_x, headless,
+      age, speed, pole_speed;
 };
 struct Shot {
   I id, row, x, damage, icy, move_remainder;
 };
 struct Mower {
-  I row, x, state, move_remainder;
+  I row, x, state, move_remainder, chomp_ticks;
 };
 struct Header {
   I tick, status, sun, next_id, spawn_index, defeated, wave, total_waves,
       total_spawns, np, nz, nq, accepted, reason, advanced, allowed, dig,
-      enabled;
+      enabled, gameplay_rng, sky_due, sky_drops;
 };
 struct Sim {
   Header *h;
@@ -30,6 +31,12 @@ struct Sim {
   Mower *m;
   I *cd, *sp, *ev, *ne;
   double *f;
+  __device__ I random(I minimum, I maximum) {
+    unsigned int x = (unsigned int)h->gameplay_rng;
+    x ^= x << 13; x ^= x >> 17; x ^= x << 5;
+    h->gameplay_rng = x;
+    return minimum + x % (maximum - minimum + 1);
+  }
   __device__ void emit(I kind, I id = 0, I a = 0, I b = 0, I c = 0, I d = 0,
                        I e = 0) {
     if (DIAGNOSTIC) {
@@ -49,9 +56,9 @@ struct Sim {
     return a.col * G_units_per_tile + G_units_per_tile / 2;
   }
   __device__ I dist(I &rem, I speed, bool slow = false) {
-    I n = speed * (slow ? 1 : 2) + rem;
-    rem = n % (G_tick_rate * 2);
-    return n / (G_tick_rate * 2);
+    I n = speed * (slow ? G_slow_numerator : G_slow_denominator) + rem;
+    rem = n % (G_tick_rate * G_slow_denominator);
+    return n / (G_tick_rate * G_slow_denominator);
   }
   __device__ void remove_p(I i, I why) {
     emit(1, p[i].id, why);
@@ -73,13 +80,17 @@ struct Sim {
                kind == 4 ? 1 : kind == 3 ? 3 : 0,
                h->tick + PF[kind],
                0};
+    if (kind == 0) a.due = h->tick + random(PF[kind], PFMAX[kind]);
+    else if (kind == 1 || kind == 5 || kind == 7)
+      a.due = h->tick + random(0, PI[kind]);
     p[h->np++] = a;
     emit(0, a.id, kind, row, col);
   }
-  __device__ I target(I row, I left, I right) {
+  __device__ I target(I row, I left, I right, bool headed = false) {
     I best = -1;
     for (I i = 0; i < h->nz; i++)
       if (z[i].health > 0 && z[i].row == row && z[i].x >= left &&
+          (!headed || !z[i].headless) &&
           z[i].x <= right &&
           (best < 0 || z[i].x < z[best].x ||
            (z[i].x == z[best].x && z[i].id < z[best].id)))
@@ -100,8 +111,15 @@ struct Sim {
     }
     I dh = hp - a.health, da = ar - a.armor;
     emit(5, a.id, source, dh, da);
-    if (a.health == 0)
-      f[source > 0 ? 0 : 1]++;
+    if (!a.headless && a.health < ZH[a.kind] / 3) {
+      a.headless = 1;
+      a.has_pole = 0;
+      a.bite_progress = a.target_id = 0;
+      h->defeated++;
+      if (source != 0) f[source > 0 ? 0 : 1]++;
+      emit(6, a.id, a.kind, a.row);
+      if (a.health > 0) emit(18, a.id);
+    }
     else if (source > 0) {
       f[2] += dh;
       f[3] += (double)dh / ZH[a.kind];
@@ -112,8 +130,7 @@ struct Sim {
     I out = 0;
     for (I i = 0; i < h->nz; i++) {
       if (z[i].health <= 0) {
-        h->defeated++;
-        emit(6, z[i].id, z[i].kind, z[i].row);
+        emit(19, z[i].id);
       } else
         z[out++] = z[i];
     }
@@ -148,8 +165,8 @@ struct Sim {
   __device__ void swallow(I pi, I zi) {
     Plant &a = p[pi];
     damage(zi, 0, a.id, true);
-    a.state = 4;
-    a.due = h->tick + PI[a.kind];
+    a.state = 9;
+    a.due = h->tick + PANIM[a.kind] - PBITE[a.kind];
     emit(9, z[zi].id, a.id);
   }
   __device__ void plants() {
@@ -159,40 +176,56 @@ struct Sim {
       if (kind == 0) {
         if (h->tick >= a.due) {
           income(PS[kind], 1, a.id);
-          a.due = h->tick + PI[kind];
+          a.due = h->tick + random(PI[kind], PIMAX[kind]);
         }
       } else if (kind == 1 || kind == 5 || kind == 7) {
         if (a.burst_due && h->tick >= a.burst_due) {
           shoot(a);
           a.burst_due = 0;
         }
-        if (h->tick >= a.due &&
-            target(a.row, center(a), 9223372036854775807LL) >= 0) {
-          shoot(a);
-          a.due = h->tick + PI[kind];
-          if (kind == 7)
-            a.burst_due = h->tick + PB[kind];
-        }
+        bool launch = h->tick >= a.due;
+        if (launch) a.due = h->tick + PI[kind] - random(0, PJ[kind]);
+        if ((launch || (kind == 7 && a.due - h->tick == PB[kind])) &&
+            target(a.row, center(a), 9223372036854775807LL) >= 0)
+          a.burst_due = h->tick + PW[kind];
       } else if (kind == 3 && h->tick >= a.due) {
         detonate(i);
         continue;
       } else if (kind == 4) {
         if (a.state == 1 && h->tick >= a.due) {
+          a.state = 7;
+          a.due = h->tick + PRISE[kind];
+        } else if (a.state == 7 && h->tick >= a.due) {
           a.state = 2;
           emit(10, a.id);
         }
         if (a.state == 2 && target(a.row, a.col * G_units_per_tile,
-                                   (a.col + 1) * G_units_per_tile - 1) >= 0) {
+                                   (a.col + 1) * G_units_per_tile - 1, true) >= 0) {
           detonate(i);
           continue;
         }
       } else if (kind == 6) {
-        if (a.state == 4 && h->tick >= a.due)
+        if (a.state == 8 && h->tick >= a.due) {
+          I t = target(a.row, center(a), center(a) + G_units_per_tile, true);
+          if (t >= 0 && !z[t].has_pole && z[t].state != 2) swallow(i, t);
+          else {
+            a.state = 10;
+            a.due = h->tick + PANIM[kind] - PBITE[kind];
+          }
+        } else if (a.state == 9 && h->tick >= a.due) {
+          a.state = 4;
+          a.due = h->tick + PI[kind];
+        } else if (a.state == 4 && h->tick >= a.due) {
+          a.state = 10;
+          a.due = h->tick + PRECOVER[kind];
+        } else if (a.state == 10 && h->tick >= a.due)
           a.state = 0;
         if (a.state == 0) {
-          I t = target(a.row, center(a), center(a) + G_units_per_tile);
-          if (t >= 0)
-            swallow(i, t);
+          I t = target(a.row, center(a), center(a) + G_units_per_tile, true);
+          if (t >= 0) {
+            a.state = 8;
+            a.due = h->tick + PBITE[kind];
+          }
         }
       }
       i++;
@@ -246,6 +279,14 @@ struct Sim {
       Zombie &a = z[i];
       if (a.health <= 0)
         continue;
+      a.age++;
+      if (a.headless && random(0, G_headless_decay_chance - 1) == 0) {
+        I d = lo(a.health, ZH[a.kind] >= G_headless_large_health ?
+                 G_headless_large_damage : G_headless_damage);
+        a.health -= d;
+        emit(20, a.id, d);
+        if (a.health <= 0) continue;
+      }
       if (a.state == 2) {
         if (h->tick < a.vault_until)
           continue;
@@ -254,11 +295,11 @@ struct Sim {
         emit(12, a.id);
       }
       bool slow = h->tick < a.slow_until;
-      I end = a.x - dist(a.move_remainder, a.has_pole ? ZP[a.kind] : ZS[a.kind],
+      I end = a.x - dist(a.move_remainder, a.has_pole ? a.pole_speed : a.speed,
                          slow);
       I best = -1;
       for (I j = 0; j < h->np; j++)
-        if (p[j].row == a.row && p[j].health > 0 &&
+        if (!a.headless && p[j].row == a.row && p[j].health > 0 &&
             end <= center(p[j]) + G_contact_offset &&
             center(p[j]) + G_contact_offset <= a.x &&
             (best < 0 || p[j].col > p[best].col ||
@@ -272,14 +313,10 @@ struct Sim {
       }
       Plant &b = p[best];
       move_z(i, center(b) + G_contact_offset);
-      if (a.health <= 0)
+      if (a.health <= 0 || a.headless)
         continue;
       if (b.kind == 4 && b.state == 2) {
         detonate(best);
-        continue;
-      }
-      if (b.kind == 6 && b.state == 0) {
-        swallow(best, i);
         continue;
       }
       if (a.has_pole) {
@@ -296,9 +333,7 @@ struct Sim {
         a.target_id = b.id;
       }
       a.state = 3;
-      a.bite_progress += slow ? 1 : 2;
-      if (a.bite_progress >= G_bite_ticks * 2) {
-        a.bite_progress -= G_bite_ticks * 2;
+      if (b.kind != 3 && a.age % (G_bite_ticks * (slow ? 2 : 1)) == 0) {
         I d = lo(b.health, G_bite_damage);
         b.health -= d;
         emit(14, b.id, a.id, d);
@@ -314,12 +349,13 @@ struct Sim {
       double kills = f[1];
       if (a.state == 0) {
         for (I i = 0; i < h->nz; i++)
-          if (z[i].health > 0 && z[i].row == r && z[i].x <= G_mower_trigger_x) {
+          if (z[i].health > 0 && !z[i].headless && z[i].row == r && z[i].x <= G_mower_trigger_x) {
             activated = true;
             break;
           }
         if (activated) {
           a.state = 1;
+          a.chomp_ticks = G_mower_first_hit_ticks;
           emit(15, 0, r);
           f[5]++;
           f[6] += h->sun;
@@ -329,11 +365,20 @@ struct Sim {
         }
       }
       if (a.state == 1) {
-        I end = a.x + dist(a.move_remainder, G_mower_speed);
+        I speed = G_mower_speed;
+        if (a.chomp_ticks) {
+          a.chomp_ticks--;
+          I d = G_mower_hit_ticks - 2 * a.chomp_ticks;
+          speed = G_mower_min_speed + (speed - G_mower_min_speed) * d * d /
+                  (G_mower_hit_ticks * G_mower_hit_ticks);
+        }
+        I end = a.x + dist(a.move_remainder, speed);
         for (I i = 0; i < h->nz; i++)
           if (z[i].row == r && z[i].health > 0 && z[i].x <= end &&
-              z[i].previous_x >= a.x)
+              z[i].previous_x >= a.x) {
             damage(i, 0, -r - 1, true);
+            a.chomp_ticks = G_mower_hit_ticks;
+          }
         a.x = end;
         if (a.x > G_spawn_x) {
           a.state = 2;
@@ -370,12 +415,19 @@ struct Sim {
                   0,
                   0};
       z[h->nz++] = a;
+      z[h->nz - 1].speed = random(ZS[k], ZSMAX[k]);
+      z[h->nz - 1].pole_speed = k == 4 ? random(ZP[k], ZPMAX[k]) : 0;
       h->spawn_index++;
       h->wave = hi(h->wave, s[3]);
       emit(3, a.id, k, a.row, s[3]);
     }
-    if (h->tick % G_sky_sun_ticks == 0)
+    if (h->tick >= h->sky_due) {
       income(G_sky_sun_amount, 0);
+      h->sky_drops++;
+      h->sky_due = h->tick + lo(G_sky_interval_max_ticks,
+          G_sky_interval_base_ticks + h->sky_drops * G_sky_interval_increment_ticks)
+          + random(0, G_sky_interval_jitter_ticks);
+    }
     plants();
     projectiles();
     clear_dead();
@@ -390,9 +442,9 @@ struct Sim {
       else
         i++;
     for (I i = 0; i < h->nz; i++)
-      if (z[i].x <= G_house_x)
+      if (!z[i].headless && z[i].x <= G_house_x)
         h->status = 2;
-    if (!h->status && !h->nz && h->spawn_index == h->total_spawns)
+    if (!h->status && h->defeated == h->total_spawns)
       h->status = 1;
     if (h->status)
       emit(17, 0, h->status);
@@ -444,7 +496,7 @@ struct Sim {
       I tile = (action - 1) % 45, kind = (action - 1) / 45;
       if (kind < 8) {
         h->sun -= PC[kind];
-        cd[kind] = PR[kind];
+        cd[kind] = PR[kind] + 1;
         add_p(kind, tile / 9, tile % 9);
       } else
         for (I i = 0; i < h->np; i++)
@@ -468,11 +520,11 @@ extern "C" __global__ void step_games(I *headers, I *plants, I *zombies,
   I i = blockIdx.x;
   if (threadIdx.x || i >= n)
     return;
-  Sim s = {(Header *)(headers + i * 18),
-           (Plant *)(plants + i * 45 * 8),
-           (Zombie *)(zombies + i * ZCAP * 15),
-           (Shot *)(shots + i * QCAP * 6),
-           (Mower *)(mowers + i * 5 * 4),
+  Sim s = {(Header *)(headers + i * GAME_HEADER_WIDTH),
+           (Plant *)(plants + i * 45 * GAME_PLANT_WIDTH),
+           (Zombie *)(zombies + i * ZCAP * GAME_ZOMBIE_WIDTH),
+           (Shot *)(shots + i * QCAP * GAME_PROJECTILE_WIDTH),
+           (Mower *)(mowers + i * 5 * GAME_MOWER_WIDTH),
            cooldowns + i * 8,
            schedules + i * ZCAP * 5,
            events + i * ECAP * 8,
@@ -491,7 +543,7 @@ extern "C" __global__ void legal_masks(const I *headers, const I *plants,
   if (a) {
     I tile = (a - 1) % 45, k = (a - 1) / 45;
     bool occupied = false;
-    const Plant *p = (const Plant *)(plants + i * 45 * 8);
+    const Plant *p = (const Plant *)(plants + i * 45 * GAME_PLANT_WIDTH);
     for (I j = 0; j < h.np; j++)
       if (p[j].row == tile / 9 && p[j].col == tile % 9) {
         occupied = true;

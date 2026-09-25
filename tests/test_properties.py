@@ -78,7 +78,7 @@ def test_presets_have_fixed_total_and_seeded_variation(name, count, waves):
         lambda r: r["plants"]["sunflower"].update(cost=-1),
         lambda r: r["plants"]["cherry_bomb"].update(first_seconds=1.234),
         lambda r: r["game"].update(rows=6),
-        lambda r: r["game"].update(sky_sun_seconds=0),
+        lambda r: r["game"].update(headless_decay_chance=0),
         lambda r: r["game"].update(unknown=1),
         lambda r: r["zombies"].update(invented={}),
         lambda r: r["zombies"]["basic"].update(speed=float("nan")),

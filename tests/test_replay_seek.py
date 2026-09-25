@@ -13,7 +13,7 @@ def recorded(make_game):
     game = make_game(plants=(InitialPlant("sunflower", 2, 0),))
     game.step(ticks=13)
     recorder = Recorder(game, hash_interval=1, metadata={"outcome": "truncated"})
-    recorder.step(Place("potato_mine", 0, 0), ticks=301)
+    recorder.step(Place("peashooter", 0, 0), ticks=301)
     recorder.step(Place("cherry_bomb", 1, 1), ticks=75)
     recorder.step(Place("sunflower", 2, 0), ticks=30)  # Rejected: occupied.
     recorder.step(Dig(2, 0), ticks=301)

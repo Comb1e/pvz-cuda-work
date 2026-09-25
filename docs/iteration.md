@@ -235,3 +235,19 @@ See `validation.md` for measurements, test categories, and reproducible commands
 - Cross-platform determinism and extended human usability have not yet been tested.
 - Snapshots/replays reject incompatible versions; no migration support is provided.
 - RL, reward design, observation tensors, training, and generalization studies remain external.
+
+
+## 1.5.0 — 2026-09-25
+
+Fixed constant production intervals, instantaneous shooter/chomper attacks,
+incorrect health/armor, slow-card initial readiness and absent headless decay.
+Both engines now share portable gameplay RNG, explicit combat phases, health
+and neutralization semantics. Rendering shows headless bodies. Snapshot/CUDA
+schemas are version 2; simulation compatibility is 1.2.0. Old recordings stay
+on their original engine. The designated checkout's broken worktree pointer was
+preserved outside the checkout and replaced with standalone Git metadata;
+source matched remote main before editing.
+
+Verification and remaining geometric/animation approximations are recorded in
+validation and the mechanics derivation. This release does not claim an exact
+original-game clone or improved learning.
