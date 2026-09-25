@@ -41,7 +41,7 @@ def test_example_scenarios_load(filename, count):
 
 def test_moving_zombie_cannot_tunnel_through_a_projectile(make_game):
     def fast(raw):
-        raw["zombies"]["basic"]["speed"] = 200
+        raw["zombies"]["basic"]["speed"] = raw["zombies"]["basic"]["max_speed"] = 200
         raw["game"]["projectile_speed"] = 50
 
     game = make_game(
@@ -50,16 +50,17 @@ def test_moving_zombie_cannot_tunnel_through_a_projectile(make_game):
         spawns=(Spawn(1, "basic", 0, x=2500),),
         plants=(InitialPlant("peashooter", 0, 0),),
     )
+    next(iter(game._plants.values())).burst_due = 1
     # Pea goes .8 -> 1.3 tiles, zombie goes 2.5 -> .8 (blocked by plant).
     game.step()
-    assert game.observe().zombies[0].health == 180
+    assert game.observe().zombies[0].health == 250
     assert not game.observe().projectiles
 
 
 def test_moving_mower_catches_a_zombie_crossing_its_old_position(make_game):
     def fast(raw):
-        raw["zombies"]["basic"]["speed"] = 20
-        raw["game"]["mower_speed"] = 25
+        raw["zombies"]["basic"]["speed"] = raw["zombies"]["basic"]["max_speed"] = 20
+        raw["game"]["mower_speed"] = raw["game"]["mower_min_speed"] = 25
 
     game = make_game(
         stationary=False,
@@ -77,7 +78,7 @@ def test_moving_mower_catches_a_zombie_crossing_its_old_position(make_game):
 
 def test_final_tick_attack_prevents_house_breach(make_game):
     def fast(raw):
-        raw["zombies"]["basic"]["speed"] = 1000
+        raw["zombies"]["basic"]["speed"] = raw["zombies"]["basic"]["max_speed"] = 1000
         raw["plants"]["peashooter"]["damage"] = 200
         raw["game"]["projectile_speed"] = 1000
 
@@ -87,6 +88,7 @@ def test_final_tick_attack_prevents_house_breach(make_game):
         spawns=(Spawn(1, "basic", 0, x=9000),),
         plants=(InitialPlant("peashooter", 0, 0),),
     )
+    next(iter(game._plants.values())).burst_due = 1
     assert game.step().status == Status.WON
 
 

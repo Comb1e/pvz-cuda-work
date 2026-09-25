@@ -338,6 +338,7 @@ class _BoardCanvas(Painter):
                 state=z.state,
                 armor=z.armor,
                 slow=z.slow_ticks > 0,
+                headless=z.headless,
             )
             if self.inspect:
                 self.text(f"{z.health}+{z.armor}", x, y + 34, 13, INK, True)

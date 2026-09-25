@@ -83,7 +83,7 @@ tools. The external research project owns observation encoding, rewards, action 
 framework-specific form, time cutoffs, training, and evaluation protocols.
 
 The shared HUD displays `counts.defeated/counts.initial_total`, such as `2/15`. All views use
-this one formatter; integer observation counts and game outcomes retain their existing meaning.
+this one formatter; integer observation counts and game outcomes count neutralized threats; headless bodies remain in the entity list until removal.
 
 `BoardRenderer` accepts an observation, optional `RenderContext`, and optional `RenderOptions`.
 It never takes a Game, seed, snapshot, or future schedule. Selection, hover coordinates, legal
@@ -126,7 +126,7 @@ flowchart TD
     Clock --> Spawn[Spawn due zombies and credit sky sun]
     Spawn --> Plants[Plant state changes and attacks]
     Plants --> Peas[Move projectiles with swept collision]
-    Peas --> Deaths[Remove defeated zombies and count events]
+    Peas --> Deaths[Remove dead bodies]
     Deaths --> Zombies[Zombie movement, vaulting, and bites]
     Zombies --> Mowers[Mower activation and swept movement]
     Mowers --> Cleanup[Remove destroyed entities]
@@ -146,8 +146,8 @@ Events count defeats explicitly, including ticks with both new spawns and deaths
 ```mermaid
 stateDiagram-v2
     [*] --> Running
-    Running --> Won: All scheduled zombies defeated
-    Running --> Lost: A living zombie reaches the house
+    Running --> Won: All scheduled threats neutralized
+    Running --> Lost: A headed zombie reaches the house
     Won --> Running: reset
     Lost --> Running: reset
 ```
@@ -168,9 +168,9 @@ stateDiagram-v2
 | Entity | Other transitions |
 |---|---|
 | Ordinary zombie | Walking ↔ Biting → Dead |
-| Potato Mine | Arming → Armed → Detonating → Removed |
+| Potato Mine | Arming → Rising → Armed → Detonating → Removed |
 | Cherry Bomb | Fusing → Exploding → Removed |
-| Chomper | Ready → Digesting → Ready |
+| Chomper | Ready → Biting → Digesting → Recovering → Ready |
 | Lawn mower | Ready → Moving → Spent |
 | Interactive screen | Menu → Playing ↔ Paused → Ended; restart or return to menu |
 
@@ -225,8 +225,8 @@ presentation context explicitly and decide when an external cutoff applies. Neit
 changes the engine's Running/Won/Lost state machine.
 
 Schema and engine versions are explicit. Package releases can share a simulation compatibility
-identifier when rules and state semantics are unchanged: package 1.2.1 uses engine 1.1.0 and
-schema version 1. There is no migration across incompatible snapshot versions.
+identifier when rules and state semantics are unchanged: package 1.5.0 uses engine 1.2.0 and
+snapshot/CUDA schema version 2. There is no migration across incompatible snapshot versions.
 Platform-independent integer rules are used, but cross-platform determinism has not yet
 been experimentally verified; the tested environment is Python 3.12.3 on Windows 11.
 
@@ -237,3 +237,28 @@ into `action_replay`, which applies zero-time plant/dig operations between norma
 combat ticks. It has no learning-library dependency. Seeking includes all instant
 operations at the requested tick, verifies hashes, and preserves game identity.
 The normal Game API continues requiring positive ticks. Unknown formats fail.
+
+
+## Production and combat phases
+
+The [mechanics contract](math/pc-mechanics.md) defines timing, ranges and
+reconstruction limits. Every game owns a portable gameplay RNG separate from
+scenario generation. Its state and sky production counters are checkpointed;
+CUDA headers carry them alongside entity phases. Public views expose headless
+state and current health, but never the RNG or future schedule.
+
+```mermaid
+stateDiagram-v2
+    Headed --> Headless: Body HP below one third
+    Headed --> Removed: Lethal hit or swallow
+    Headless --> Removed: Autonomous decay or later hit
+```
+
+Only the first transition out of Headed increments the neutralized count.
+Autonomous decay emits its own event and cannot masquerade as plant damage.
+Headless bodies cannot bite, vault, activate an idle mower or breach the house.
+Victory counts neutralized threats, including those with a body still visible.
+
+Mine phases are underground, rising, armed, detonated. Chomper phases are ready,
+biting, caught/missed, digesting, recovering, ready. Shooter cycle deadlines run
+even without targets; target acquisition schedules a separate shot windup.

@@ -91,6 +91,12 @@ class Rules:
             raise ValueError("contact_offset must be between zero and half a tile")
         if not 0 < game["projectile_offset"] <= game["contact_offset"]:
             raise ValueError("projectile_offset must not exceed contact_offset")
+        for key in ("slow_denominator", "headless_decay_chance", "mower_hit_ticks"):
+            integer(game[key], key, 1)
+        if not 0 < game["slow_numerator"] <= game["slow_denominator"]:
+            raise ValueError("invalid chilled movement fraction")
+        if game["sky_first_min_ticks"] > game["sky_first_max_ticks"]:
+            raise ValueError("invalid initial sky range")
         groups = {}
         for group in ("plants", "zombies"):
             parsed = {}
@@ -106,6 +112,11 @@ class Rules:
                     else:
                         fields[key] = integer(value, key, 1 if key == "health" else 0)
                 parsed[kind] = MappingProxyType(fields)
+                if group == "zombies" and (
+                    fields["speed"] > fields["max_speed"]
+                    or fields.get("pole_speed", 0) > fields.get("pole_max_speed", 0)
+                ):
+                    raise ValueError("invalid zombie speed range")
             groups[group] = MappingProxyType(parsed)
         self._raw = raw
         self.version = raw["version"]

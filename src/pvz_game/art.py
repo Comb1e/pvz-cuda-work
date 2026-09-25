@@ -121,7 +121,9 @@ def plant_art(surface, kind, x, y, scale=1.0, state="ready", phase=0):
                 line(CREAM, [(dx, dy - 4), (dx, dy + 4)], 1)
 
 
-def zombie_art(surface, kind, x, y, *, tick=0, state="walking", armor=0, slow=False):
+def zombie_art(
+    surface, kind, x, y, *, tick=0, state="walking", armor=0, slow=False, headless=False
+):
     x, y = round(x), round(y)
     sway = round(math.sin(tick * 0.2) * 3) if state not in ("biting", "vaulting") else 0
     if state == "vaulting":
@@ -133,6 +135,8 @@ def zombie_art(surface, kind, x, y, *, tick=0, state="walking", armor=0, slow=Fa
     pygame.draw.rect(surface, (115, 96, 117), (x - 16, y - 16, 32, 38), border_radius=6)
     pygame.draw.line(surface, skin, (x - 13, y - 8), (x - 34, y + 2), 7)
     pygame.draw.line(surface, skin, (x + 13, y - 5), (x - 14, y + 8), 6)
+    if headless:
+        return
     pygame.draw.ellipse(surface, skin, (x - 20, y - 49, 41, 39))
     pygame.draw.circle(surface, CREAM, (x - 11, y - 31), 6)
     pygame.draw.circle(surface, INK, (x - 13, y - 30), 2)

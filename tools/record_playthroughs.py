@@ -17,7 +17,7 @@ def choose_action(game):
     obs = game.observe()
     tiles = {(p.row, p.col): p for p in obs.plants}
     unit = obs.units_per_tile
-    lanes = [[z for z in obs.zombies if z.row == row] for row in range(5)]
+    lanes = [[z for z in obs.zombies if z.row == row and not z.headless] for row in range(5)]
     nearest = [min((z.x / unit for z in zs), default=20) for zs in lanes]
     firepower = [
         sum(
@@ -131,7 +131,7 @@ def record(level, seed, destination):
     game.reset(level, seed)
     recorder = Recorder(game, hash_interval=50)
     started = perf_counter()
-    while game.observe().status == Status.RUNNING and game.observe().tick < 20000:
+    while game.observe().status == Status.RUNNING and game.observe().tick < 1200 * game.rules.game["tick_rate"]:
         recorder.step(choose_action(game), ticks=10)
     obs = game.observe()
     result = {

@@ -8,9 +8,13 @@ Eight plants, five zombies, three scenarios, automatic sun collection, exact rem
 zombie counts, snapshots, and verified action replays are included. Training algorithms,
 rewards, tensor observations, and learning-framework wrappers belong to your external project.
 
-Version 1.4.0 runs at 100 Hz (simulation compatibility 1.1.0) and includes an optional CUDA batch simulator ([API and setup](docs/cuda.md)).
+Version 1.5.0 runs at 100 Hz (simulation compatibility 1.2.0) and includes an optional CUDA batch simulator ([API and setup](docs/cuda.md)).
 The renderer shows zombie progress as defeated/total, such as `2/15`, across gameplay and
 demos. Compact recordings support live viewing and a seekable timeline with 0.5×–8× speeds.
+
+Mechanics, public headless state, RNG, and reconstruction limits are documented in
+[PC mechanics](docs/math/pc-mechanics.md). Head loss neutralizes a threat; its visible
+body can continue decaying without producing plant damage credit.
 
 ## Research demos
 
@@ -69,7 +73,7 @@ At the level menu, type digits or Backspace to edit the seed. Sun credits automa
 The main zombie counter shows defeated/total, such as `2/15`. Total includes every zombie
 scheduled for the level, and stays fixed as zombies spawn or are defeated. Remaining,
 on-lawn, and upcoming counts are also shown; future identities, lanes, and exact spawn times
-are not shown. All eight cards are available immediately.
+are not shown. All eight species are supported; slow cards have their original initial recharge delays.
 
 ## Control from another project
 

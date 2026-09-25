@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 API_VERSION = 1
-SNAPSHOT_VERSION = 1
+SNAPSHOT_VERSION = 2
 # Simulation compatibility identifier, included in state hashes. Presentation-only
 # package releases retain it so existing snapshots and research baselines still replay.
-ENGINE_VERSION = "1.1.0"
-PACKAGE_VERSION = "1.4.0"
+ENGINE_VERSION = "1.2.0"
+PACKAGE_VERSION = "1.5.0"
 
 
 class Status(StrEnum):
@@ -87,6 +87,7 @@ class ZombieView:
     slow_ticks: int
     has_pole: bool
     timer_ticks: int
+    headless: bool = False
 
 
 @dataclass(frozen=True, slots=True)
