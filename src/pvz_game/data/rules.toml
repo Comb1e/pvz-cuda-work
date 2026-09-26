@@ -1,4 +1,4 @@
-version = "daytime-1.2"
+version = "daytime-1.3"
 
 [game]
 tick_rate = 100
@@ -24,13 +24,11 @@ mower_first_hit_ticks = 25
 projectile_speed = 4.163
 projectile_offset = 0.3
 contact_offset = 0.3
-vault_seconds = 1.8
-vault_distance = 1
 bite_seconds = 0.04
 bite_damage = 4
 slow_seconds = 10
-slow_numerator = 2
-slow_denominator = 5
+slow_numerator = 1
+slow_denominator = 2
 headless_decay_chance = 5
 headless_damage = 1
 headless_large_damage = 3
@@ -109,31 +107,31 @@ damage = 20
 [zombies.basic]
 health = 270
 armor = 0
-speed = 0.135
-max_speed = 0.188
+speed = 0.230
+max_speed = 0.320
 
 [zombies.flag]
 health = 270
 armor = 0
-speed = 0.264
-max_speed = 0.264
+speed = 0.450
+max_speed = 0.450
 
 [zombies.conehead]
 health = 270
 armor = 370
-speed = 0.135
-max_speed = 0.188
+speed = 0.230
+max_speed = 0.320
 
 [zombies.buckethead]
 health = 270
 armor = 1100
-speed = 0.135
-max_speed = 0.188
+speed = 0.230
+max_speed = 0.320
 
 [zombies.pole_vaulting]
 health = 500
 armor = 0
-speed = 0.135
-max_speed = 0.188
-pole_speed = 0.388
-pole_max_speed = 0.400
+speed = 0.230
+max_speed = 0.320
+pole_speed = 0.660
+pole_max_speed = 0.680

@@ -144,7 +144,9 @@ def test_archived_success_and_failure_replay_hashes(cuda, level):
 
     from pvz_game.replay import decode_action
 
-    payload = json.loads((Path(__file__).parent / "fixtures" / f"{level}-seed42.json").read_text())
+    payload = json.loads(
+        (Path(__file__).parent / "fixtures" / "v16" / f"{level}-seed42.json").read_text()
+    )
     batch = cuda(
         1,
         zombie_capacity=len(payload["initial"]["level"]["spawns"]),
@@ -178,7 +180,7 @@ def test_restore_crowds_mower_sweep_and_signed_boundaries(cuda):
     batch = cuda(1, zombie_capacity=150, diagnostic=True, max_step_ticks=1)
     batch.reset([level], [3])
     compare(batch, [game], [Wait()])
-    # Flag and pole lanes cross on tick one; ordinary walkers need tick two.
+    # Strict mower overlap: the fastest two kinds cross before ordinary walkers.
     assert game.observe().counts.defeated == 60
     compare(batch, [game], [Wait()])
     assert game.observe().counts.defeated == 150

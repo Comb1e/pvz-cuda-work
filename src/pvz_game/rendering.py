@@ -327,7 +327,7 @@ class _BoardCanvas(Painter):
                     self.surface, (54, 124, 66), (x - 24, y + 32, 48 * p.health / p.max_health, 4)
                 )
         for z in sorted(obs.zombies, key=lambda z: (z.row, z.x, z.id)):
-            x = board.x + z.x / obs.units_per_tile * c["tile_width"]
+            x = board.x + (z.x / obs.units_per_tile + 21 / 80) * c["tile_width"]
             y = board.y + (z.row + 0.5) * c["tile_height"] + 11
             zombie_art(
                 self.surface,

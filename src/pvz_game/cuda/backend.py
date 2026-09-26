@@ -16,6 +16,7 @@ from pathlib import Path
 
 from ..config import PLANT_TYPES, ZOMBIE_TYPES, Rules, canonical_hash
 from ..engine import Game
+from ..mechanics import cuda_constants
 from ..types import Event, GameFinishedError
 from . import schema as s
 
@@ -85,7 +86,7 @@ def projectile_bound(rules):
 
 
 def kernel_source(rules, zombie_capacity, projectile_capacity, event_capacity, diagnostic):
-    prefix = ["typedef long long I;"]
+    prefix = ["typedef long long I;", cuda_constants()]
     prefix.extend(f"#define G_{k} {v}LL" for k, v in rules.game.items())
     prefix.extend(
         f"#define GAME_{name}_WIDTH {len(fields)}"

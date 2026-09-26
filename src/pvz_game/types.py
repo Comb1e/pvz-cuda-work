@@ -4,11 +4,11 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 API_VERSION = 1
-SNAPSHOT_VERSION = 2
+SNAPSHOT_VERSION = 3
 # Simulation compatibility identifier, included in state hashes. Presentation-only
 # package releases retain it so existing snapshots and research baselines still replay.
-ENGINE_VERSION = "1.2.0"
-PACKAGE_VERSION = "1.5.0"
+ENGINE_VERSION = "1.3.0"
+PACKAGE_VERSION = "1.6.0"
 
 
 class Status(StrEnum):

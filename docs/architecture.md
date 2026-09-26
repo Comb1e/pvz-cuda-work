@@ -225,8 +225,8 @@ presentation context explicitly and decide when an external cutoff applies. Neit
 changes the engine's Running/Won/Lost state machine.
 
 Schema and engine versions are explicit. Package releases can share a simulation compatibility
-identifier when rules and state semantics are unchanged: package 1.5.0 uses engine 1.2.0 and
-snapshot/CUDA schema version 2. There is no migration across incompatible snapshot versions.
+identifier when rules and state semantics are unchanged: package 1.6.0 uses engine 1.3.0 and
+snapshot/CUDA schema version 3. There is no migration across incompatible snapshot versions.
 Platform-independent integer rules are used, but cross-platform determinism has not yet
 been experimentally verified; the tested environment is Python 3.12.3 on Windows 11.
 
@@ -262,3 +262,30 @@ Victory counts neutralized threats, including those with a body still visible.
 Mine phases are underground, rising, armed, detonated. Chomper phases are ready,
 biting, caught/missed, digesting, recovering, ready. Shooter cycle deadlines run
 even without targets; target acquisition schedules a separate shot windup.
+
+
+## Numerical motion and collisions
+
+The CPU and CUDA implementations share configured ground-track deltas and numeric
+constants. Public zombie positions denote body-rectangle left edges. Private gait
+variant, sampled velocity, normalized phase and division remainders survive snapshots.
+Geometry uses source-pixel cross-products, inclusive blast tangency and swept projectile
+rectangles; airborne vaulters cannot be ordinary pea targets or mine triggers.
+See [the unit and boundary derivation](math/gait-and-geometry.md).
+
+```mermaid
+stateDiagram-v2
+    [*] --> Walking: spawn / choose gait and speed
+    Walking --> Biting: plant attack overlap
+    Biting --> Walking: target gone / resample
+    Walking --> Vaulting: capable pole / eligible plant
+    Vaulting --> Walking: jump completes / post-vault gait and new speed
+    Walking --> Headless: health below threshold
+    Biting --> Headless: health below threshold
+    Headless --> Removed: autonomous decay or damage
+```
+
+Head loss affects threat/attack eligibility independently of locomotion: it does
+not invent a new walking speed or reset a vault. The diagram's Headless state
+summarizes this independent damage state. Mower positioning remains customizable;
+its 50-pixel swept rectangle uses strict positive overlap.

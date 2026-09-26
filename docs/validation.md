@@ -232,3 +232,21 @@ ticks 14,788 / 29,334 / 43,454, respectively, with five mowers still ready.
 Their regenerated acceptance recordings replay exactly. These are game
 correctness controls, not agent performance results. See the mechanics
 derivation for the retained animation-free movement and collision limits.
+
+
+## 1.6.0 verification — 2026-09-26
+
+Independent rational gait integration, half-rate phase progression, contact and
+blast boundary controls were written before or alongside the behavior changes.
+The CPU suite passes 227 tests. CUDA differential controls pass all 17 cases
+(including every supported plant, event order, RNG, snapshots, headless decay,
+strict mower contacts and the new replay fixtures). Targeted post-audit mower
+checks are included in the final run. Source imports were explicitly pointed
+at this checkout so tests did not accidentally exercise the installed 1.5.0.
+
+Fresh public-API seed-42 acceptance controllers win easy/standard/hard at
+14936/29352/42381 ticks, retaining five ready mowers, and verify their replays.
+New files are under `tests/fixtures/v16/`; previous fixtures remain unchanged.
+The research saving controls passed all 50 lane/mode combinations without lesson
+retuning. These are controlled witnesses and failure cases, not PPO/Q-learning
+experiments or original-executable equivalence evidence.

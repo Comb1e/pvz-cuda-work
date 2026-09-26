@@ -1,9 +1,9 @@
 """Versioned numeric storage and public event schema shared with CUDA kernels."""
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 HEADER = "tick status sun next_id spawn_index defeated wave total_waves total_spawns np nz nq accepted reason advanced allowed dig enabled gameplay_rng sky_due sky_drops".split()
 PLANT = "id kind row col health state due burst_due".split()
-ZOMBIE = "id kind row x health armor state slow_until has_pole vault_until landing_x bite_progress move_remainder target_id previous_x headless age speed pole_speed".split()
+ZOMBIE = "id kind row x health armor state slow_until has_pole vault_until landing_x bite_progress move_remainder target_id previous_x headless age speed pole_speed gait gait_phase phase_remainder vault_start_x vault_start_tick".split()
 PROJECTILE = "id row x damage icy move_remainder".split()
 MOWER = "row x state move_remainder chomp_ticks".split()
 PLANT_STATES = (
