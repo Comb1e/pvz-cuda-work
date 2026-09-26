@@ -7,7 +7,7 @@ from pvz_game import ENGINE_VERSION, PACKAGE_VERSION, Game, InitialPlant, LevelS
 
 def test_100hz_physical_units_and_incompatible_old_snapshot():
     rules = Rules()
-    assert PACKAGE_VERSION == "1.5.0" and ENGINE_VERSION == "1.2.0"
+    assert PACKAGE_VERSION == "1.6.0" and ENGINE_VERSION == "1.3.0"
     assert rules.game["tick_rate"] == 100
     assert rules.plants["peashooter"]["interval_ticks"] == 150
     assert rules.plants["potato_mine"]["first_ticks"] == 1500
@@ -17,7 +17,9 @@ def test_100hz_physical_units_and_incompatible_old_snapshot():
     game.step()
     first = game.observe().zombies[0].x
     game.step(ticks=100)
-    assert first - game.observe().zombies[0].x == game.snapshot()["zombies"][0]["speed"]
+    assert (
+        100 < first - game.observe().zombies[0].x < 300
+    )  # Instantaneous gait, not constant velocity.
     assert game.observe().elapsed_seconds == 1.01
     snapshot = game.snapshot()
     snapshot["engine_version"] = "1.0.0"

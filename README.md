@@ -8,12 +8,12 @@ Eight plants, five zombies, three scenarios, automatic sun collection, exact rem
 zombie counts, snapshots, and verified action replays are included. Training algorithms,
 rewards, tensor observations, and learning-framework wrappers belong to your external project.
 
-Version 1.5.0 runs at 100 Hz (simulation compatibility 1.2.0) and includes an optional CUDA batch simulator ([API and setup](docs/cuda.md)).
+Version 1.6.0 runs at 100 Hz (simulation compatibility 1.3.0) and includes an optional CUDA batch simulator ([API and setup](docs/cuda.md)).
 The renderer shows zombie progress as defeated/total, such as `2/15`, across gameplay and
 demos. Compact recordings support live viewing and a seekable timeline with 0.5×–8× speeds.
 
 Mechanics, public headless state, RNG, and reconstruction limits are documented in
-[PC mechanics](docs/math/pc-mechanics.md). Head loss neutralizes a threat; its visible
+[PC mechanics](docs/math/pc-mechanics.md) and [gait/geometry controls](docs/math/gait-and-geometry.md). Head loss neutralizes a threat; its visible
 body can continue decaying without producing plant damage credit.
 
 ## Research demos
@@ -32,7 +32,7 @@ A source launcher can reuse another environment without reinstalling its game:
 # Add -VerifyOnly to check hashes without opening a window.
 ```
 
-This release reads 100 Hz recordings only. Previous 20 Hz snapshots and replays
+This release reads simulation 1.3.0 recordings only. Previous snapshots and replays
 have incompatible simulation versions and require their original engine; no conversion
 or legacy simulator is included. Research training installs a verified Git archive of
 this repository into its existing environment.

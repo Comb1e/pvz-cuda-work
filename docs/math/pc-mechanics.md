@@ -17,7 +17,7 @@ to a learning agent's inputs. All ranges include both endpoints.
 | Head loss | Body health strictly below integer(maximum/3); counts as neutralized once |
 | Autonomous decay | Each headless body's tick has probability 1/5 of losing 1 HP, or 3 HP for body maximum at least 500 |
 | Bites | Four HP every fourth zombie-age tick, or every eighth while chilled |
-| Chilling | Movement multiplier 2/5, duration 1,000 ticks |
+| Chilling | Gait animation rate 1/2, duration 1,000 ticks |
 
 The card's extra tick follows the source's strict `counter > refreshTime`
 comparison. A plant placed at tick t has its cooldown decremented on the next
@@ -28,17 +28,12 @@ at 18 fps, chomper bite 25 at 24 fps, and recovery 28 at 12 fps. Round each
 duration upward to a complete simulation tick: 106, 105 and 234 respectively.
 Art is drawn independently; source artwork is not redistributed.
 
-The reconstruction uses fixed-point, animation-free movement. Walking velocity
-uses the original animation-rate factor 47/80 tiles per second per source
-velocity unit. Ordinary source velocity .23–.32 gives .135125–.188 tiles/s;
-flag .45 gives .264375; pole .66–.68 gives .38775–.3995. The configured
-endpoints are rounded to .001 tiles/s and sampled on that integer grid.
-It does not reproduce the original per-frame ground track or floating-point RNG.
-Peas and mowers use rounded 3.33*100/80 = 4.1625 tiles/s. Mower hit slowdown
-uses the source's inverse-quadratic bounce envelope, quantized before movement.
-Collision geometry remains this project's tile-based geometry, and pole vaults
-use a 180-tick phase and one-tile displacement. These are documented geometry
-approximations, not a claim of binary-compatible PC/GOTY simulation.
+Movement and combat geometry are derived in [gait and geometry](gait-and-geometry.md).
+The independent numerical tracks retain nonuniform motion, zero/negative segments,
+loop endpoints and restart sampling. This is a fixed-point reconstruction, not
+binary-compatible PC/GOTY simulation. Projectiles and mower base speeds retain
+rounded 3.33*100/80 = 4.1625 tiles/s. Mower hit slowdown follows the existing
+inverse-quadratic envelope. Custom mower/house boundaries are explicit limits.
 
 Gameplay randomness is per-game xorshift32, with unsigned 32-bit shifts
 13,17,5. Seed initialization is `(seed xor 0x9e3779b9) mod 2^32`, replacing

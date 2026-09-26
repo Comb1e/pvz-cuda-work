@@ -4,13 +4,14 @@
 typedef long long I;
 __device__ I lo(I a, I b) { return a < b ? a : b; }
 __device__ I hi(I a, I b) { return a > b ? a : b; }
+__device__ I floor_div(I a, I b) { return a / b - (a % b < 0); }
 struct Plant {
   I id, kind, row, col, health, state, due, burst_due;
 };
 struct Zombie {
   I id, kind, row, x, health, armor, state, slow_until, has_pole, vault_until,
       landing_x, bite_progress, move_remainder, target_id, previous_x, headless,
-      age, speed, pole_speed;
+      age, speed, pole_speed, gait, gait_phase, phase_remainder, vault_start_x, vault_start_tick;
 };
 struct Shot {
   I id, row, x, damage, icy, move_remainder;
@@ -54,6 +55,70 @@ struct Sim {
   }
   __device__ I center(Plant &a) {
     return a.col * G_units_per_tile + G_units_per_tile / 2;
+  }
+  __device__ void start_walk(Zombie &a, bool pole) {
+    if (pole) {
+      a.speed = a.pole_speed = random(ZP[a.kind], ZPMAX[a.kind]);
+      a.gait = 2;
+    } else {
+      a.speed = a.kind == 1 ? ZS[a.kind] : random(ZS[a.kind], ZSMAX[a.kind]);
+      I variant = random(0, 1);
+      a.gait = a.kind == 4 ? 3 : (a.kind == 1 || variant == 0 ? 1 : 0);
+    }
+    a.gait_phase = a.phase_remainder = 0;
+  }
+  __device__ I gait_step(Zombie &a, bool slow) {
+    I frames = GN[a.gait];
+    I rate = a.speed * frames * M_animation_factor * M_phase_scale / (100 * GD[a.gait]);
+    if (slow) rate /= 2;
+    I index = a.gait_phase * (frames - 1) / M_phase_scale;
+    I n = GDELTA[a.gait][index] * rate * G_units_per_tile + a.move_remainder;
+    I distance = floor_div(n, M_move_denominator);
+    a.move_remainder = n - distance * M_move_denominator;
+    n = rate + a.phase_remainder;
+    a.gait_phase = (a.gait_phase + n / (100 * frames)) % M_phase_scale;
+    a.phase_remainder = n % (100 * frames);
+    return distance;
+  }
+  __device__ bool contacts(Zombie &a, Plant &b, I end) {
+    I offset = a.has_pole ? -65 : 14, width = a.has_pole ? 70 : 20;
+    I left = b.col * G_units_per_tile * 80 + (30 - offset - width) * G_units_per_tile;
+    I right = b.col * G_units_per_tile * 80 + (50 - offset) * G_units_per_tile;
+    return lo(end, a.x) * 80 <= right && hi(end, a.x) * 80 >= left;
+  }
+  __device__ I plant_target(Plant &a) {
+    I best = -1;
+    for (I i = 0; i < h->nz; i++) {
+      Zombie &b = z[i];
+      if (b.row != a.row || b.health <= 0 || b.state == 2) continue;
+      I left = 60, right = 10000, extra = 0;
+      if (a.kind == 4) {
+        if (b.headless || b.gait == 2) continue;
+        left = b.kind == 4 ? 40 : 0;
+        right = 55;
+        extra = b.state == 3 ? 30 : 0;
+      } else if (a.kind == 6) {
+        if (b.headless) continue;
+        left = 80; right = 120;
+        extra = b.state == 3 || a.state == 8 ? 60 : 0;
+      }
+      I origin = a.col * G_units_per_tile * 80;
+      if (b.x * 80 <= origin + (right + extra) * G_units_per_tile &&
+          b.x * 80 + 42 * G_units_per_tile >= origin + (left - extra) * G_units_per_tile &&
+          (best < 0 || b.x < z[best].x || (b.x == z[best].x && b.id < z[best].id))) best = i;
+    }
+    return best;
+  }
+  __device__ I shot_target(I row, I start, I end) {
+    I best = -1;
+    for (I i = 0; i < h->nz; i++) {
+      Zombie &a = z[i];
+      if (a.health > 0 && a.row == row && a.state != 2 &&
+          a.x * 80 <= end * 80 + 40 * G_units_per_tile &&
+          a.x * 80 + 42 * G_units_per_tile >= start * 80 - 15 * G_units_per_tile &&
+          (best < 0 || a.x < z[best].x || (a.x == z[best].x && a.id < z[best].id))) best = i;
+    }
+    return best;
   }
   __device__ I dist(I &rem, I speed, bool slow = false) {
     I n = speed * (slow ? G_slow_numerator : G_slow_denominator) + rem;
@@ -150,13 +215,16 @@ struct Sim {
   __device__ void detonate(I i) {
     Plant a = p[i];
     I rad = a.kind == 3 ? 1 : 0;
-    I left = (a.col - rad) * G_units_per_tile,
-      right = (a.col + rad + 1) * G_units_per_tile;
     I hit = 0;
-    for (I j = 0; j < h->nz; j++)
-      if (hi(z[j].row - a.row, a.row - z[j].row) <= rad && left <= z[j].x &&
-          z[j].x < right)
+    for (I j = 0; j < h->nz; j++) {
+      I cx = a.col * G_units_per_tile * 80 + (rad ? 40 : 20) * G_units_per_tile;
+      I cy = (a.row * 100 + 40) * G_units_per_tile;
+      I dx = hi(hi(z[j].x * 80 - cx, 0), cx - z[j].x * 80 - 42 * G_units_per_tile);
+      I dy = hi(hi((z[j].row * 100 - 30) * G_units_per_tile - cy, 0), cy - (z[j].row * 100 + 85) * G_units_per_tile);
+      I radius = (rad ? M_cherry_radius_pixels : M_mine_radius_pixels) * G_units_per_tile;
+      if ((rad || z[j].state != 2) && hi(z[j].row - a.row, a.row - z[j].row) <= rad && dx*dx+dy*dy <= radius*radius)
         hit += damage(j, PD[a.kind], a.id);
+    }
     if (!hit)
       f[8]++;
     emit(8, a.id, a.row, a.col, rad);
@@ -186,7 +254,7 @@ struct Sim {
         bool launch = h->tick >= a.due;
         if (launch) a.due = h->tick + PI[kind] - random(0, PJ[kind]);
         if ((launch || (kind == 7 && a.due - h->tick == PB[kind])) &&
-            target(a.row, center(a), 9223372036854775807LL) >= 0)
+            plant_target(a) >= 0)
           a.burst_due = h->tick + PW[kind];
       } else if (kind == 3 && h->tick >= a.due) {
         detonate(i);
@@ -199,14 +267,13 @@ struct Sim {
           a.state = 2;
           emit(10, a.id);
         }
-        if (a.state == 2 && target(a.row, a.col * G_units_per_tile,
-                                   (a.col + 1) * G_units_per_tile - 1, true) >= 0) {
+        if (a.state == 2 && plant_target(a) >= 0) {
           detonate(i);
           continue;
         }
       } else if (kind == 6) {
         if (a.state == 8 && h->tick >= a.due) {
-          I t = target(a.row, center(a), center(a) + G_units_per_tile, true);
+          I t = plant_target(a);
           if (t >= 0 && !z[t].has_pole && z[t].state != 2) swallow(i, t);
           else {
             a.state = 10;
@@ -221,7 +288,7 @@ struct Sim {
         } else if (a.state == 10 && h->tick >= a.due)
           a.state = 0;
         if (a.state == 0) {
-          I t = target(a.row, center(a), center(a) + G_units_per_tile, true);
+          I t = plant_target(a);
           if (t >= 0) {
             a.state = 8;
             a.due = h->tick + PBITE[kind];
@@ -235,7 +302,7 @@ struct Sim {
     for (I i = 0; i < h->nq;) {
       Shot &a = q[i];
       I end = a.x + dist(a.move_remainder, G_projectile_speed);
-      I t = target(a.row, a.x, end);
+      I t = shot_target(a.row, a.x, end);
       if (t >= 0) {
         damage(t, a.damage, a.id);
         if (a.icy && z[t].health > 0) {
@@ -256,7 +323,7 @@ struct Sim {
     while (true) {
       I best = -1;
       for (I j = 0; j < h->nq; j++)
-        if (q[j].row == a.row && end <= q[j].x && q[j].x <= a.x &&
+        if (q[j].row == a.row && a.state != 2 && end * 80 <= q[j].x * 80 + 40 * G_units_per_tile && q[j].x * 80 - 15 * G_units_per_tile <= a.x * 80 + 42 * G_units_per_tile &&
             (best < 0 || q[j].x > q[best].x ||
              (q[j].x == q[best].x && q[j].id < q[best].id)))
           best = j;
@@ -288,42 +355,42 @@ struct Sim {
         if (a.health <= 0) continue;
       }
       if (a.state == 2) {
-        if (h->tick < a.vault_until)
-          continue;
-        a.x = a.landing_x;
+        I elapsed = h->tick - a.vault_start_tick;
+        a.x = a.vault_start_x - floor_div((a.vault_start_x - a.landing_x) * lo(elapsed * 24, 4300), 4300);
+        if (h->tick < a.vault_until) continue;
+        a.x -= M_jump_shift_pixels * G_units_per_tile / 80;
         a.state = 0;
+        start_walk(a, false);
         emit(12, a.id);
       }
       bool slow = h->tick < a.slow_until;
-      I end = a.x - dist(a.move_remainder, a.has_pole ? a.pole_speed : a.speed,
-                         slow);
+      I end = a.x - gait_step(a, slow);
       I best = -1;
       for (I j = 0; j < h->np; j++)
         if (!a.headless && p[j].row == a.row && p[j].health > 0 &&
-            end <= center(p[j]) + G_contact_offset &&
-            center(p[j]) + G_contact_offset <= a.x &&
+            contacts(a, p[j], end) &&
             (best < 0 || p[j].col > p[best].col ||
              (p[j].col == p[best].col && p[j].id < p[best].id)))
           best = j;
       if (best < 0) {
+        if (a.state == 3) start_walk(a, false);
         move_z(i, end);
         a.state = a.has_pole ? 1 : 0;
         a.bite_progress = a.target_id = 0;
         continue;
       }
       Plant &b = p[best];
-      move_z(i, center(b) + G_contact_offset);
+      I boundary = b.col * G_units_per_tile + floor_div((50 - (a.has_pole ? -65 : 14)) * G_units_per_tile, 80);
+      move_z(i, lo(a.x, boundary));
       if (a.health <= 0 || a.headless)
         continue;
-      if (b.kind == 4 && b.state == 2) {
-        detonate(best);
-        continue;
-      }
       if (a.has_pole) {
         a.has_pole = 0;
         a.state = 2;
-        a.vault_until = h->tick + G_vault_ticks;
-        a.landing_x = a.x - G_vault_distance;
+        a.vault_until = h->tick + 180;
+        a.vault_start_tick = h->tick;
+        a.vault_start_x = a.x;
+        a.landing_x = b.col * G_units_per_tile + 116 * G_units_per_tile / 80;
         a.bite_progress = a.target_id = 0;
         emit(13, a.id, b.id);
         continue;
@@ -349,7 +416,7 @@ struct Sim {
       double kills = f[1];
       if (a.state == 0) {
         for (I i = 0; i < h->nz; i++)
-          if (z[i].health > 0 && !z[i].headless && z[i].row == r && z[i].x <= G_mower_trigger_x) {
+          if (z[i].health > 0 && !z[i].headless && z[i].row == r && z[i].x < a.x && z[i].x * 80 + 42 * G_units_per_tile > a.x * 80 - 50 * G_units_per_tile) {
             activated = true;
             break;
           }
@@ -360,7 +427,7 @@ struct Sim {
           f[5]++;
           f[6] += h->sun;
           for (I i = 0; i < h->nz; i++)
-            if (z[i].row == r && z[i].x <= a.x)
+            if (z[i].row == r && z[i].x < a.x && z[i].x * 80 + 42 * G_units_per_tile > a.x * 80 - 50 * G_units_per_tile)
               damage(i, 0, -r - 1, true);
         }
       }
@@ -374,8 +441,8 @@ struct Sim {
         }
         I end = a.x + dist(a.move_remainder, speed);
         for (I i = 0; i < h->nz; i++)
-          if (z[i].row == r && z[i].health > 0 && z[i].x <= end &&
-              z[i].previous_x >= a.x) {
+          if (z[i].row == r && z[i].health > 0 && z[i].x < end &&
+              z[i].previous_x * 80 + 42 * G_units_per_tile > a.x * 80 - 50 * G_units_per_tile) {
             damage(i, 0, -r - 1, true);
             a.chomp_ticks = G_mower_hit_ticks;
           }
@@ -415,8 +482,7 @@ struct Sim {
                   0,
                   0};
       z[h->nz++] = a;
-      z[h->nz - 1].speed = random(ZS[k], ZSMAX[k]);
-      z[h->nz - 1].pole_speed = k == 4 ? random(ZP[k], ZPMAX[k]) : 0;
+      start_walk(z[h->nz - 1], k == 4);
       h->spawn_index++;
       h->wave = hi(h->wave, s[3]);
       emit(3, a.id, k, a.row, s[3]);

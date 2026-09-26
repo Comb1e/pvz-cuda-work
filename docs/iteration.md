@@ -251,3 +251,20 @@ source matched remote main before editing.
 Verification and remaining geometric/animation approximations are recorded in
 validation and the mechanics derivation. This release does not claim an exact
 original-game clone or improved learning.
+
+
+## 1.6.0 — 2026-09-26
+
+Previous movement sampled coarse constant speeds only at spawn, used a 40%
+chilled multiplier and a one-tile vault. Tile intervals also disagreed with the
+inspected contact/blast rectangles. The correction uses numerical ground tracks,
+source endpoint handling, half-rate gait, restart sampling, separate vault
+translation and source-pixel geometry with independent CPU/CUDA implementations.
+Pole carriers do not trigger mines; airborne vaulters are excluded from peas
+and mine blasts. Snapshots now preserve gait/phase/remainders (schema 3,
+simulation 1.3.0). Old artifacts require their matching release and stay intact.
+
+Verification covers rational controls, successful/failing lessons, CPU/CUDA
+states/events/RNG and newly recorded winning replays. Remaining limits are in
+`docs/math/gait-and-geometry.md`, including custom boundaries and source-RNG /
+visual-blending differences. No learning experiment was launched.

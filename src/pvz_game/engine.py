@@ -7,6 +7,7 @@ import random
 from dataclasses import asdict, dataclass
 
 from .config import PLANT_TYPES, LevelSpec, Rules, WaveSpec, canonical_hash, integer, resolve_level
+from .mechanics import MOVE_DENOMINATOR, SCALE, blast_hits, contact_interval, gait_step
 from .randomness import initial_state, next_u32
 from .types import (
     API_VERSION,
@@ -63,6 +64,11 @@ class _Zombie:
     age: int = 0
     speed: int = 0
     pole_speed: int = 0
+    gait: int = 0
+    gait_phase: int = 0
+    phase_remainder: int = 0
+    vault_start_x: int = 0
+    vault_start_tick: int = 0
 
 
 @dataclass(slots=True)
@@ -265,9 +271,8 @@ class Game:
                 spec["armor"],
                 "carrying_pole" if pole else "walking",
                 has_pole=pole,
-                speed=self._random(spec["speed"], spec["max_speed"]),
-                pole_speed=self._random(spec["pole_speed"], spec["pole_max_speed"]) if pole else 0,
             )
+            self._start_walk(z, pole=pole)
             self._zombies[z.id] = z
             self._spawn_index += 1
             self._wave = max(self._wave, spawn.wave)
@@ -303,6 +308,67 @@ class Game:
 
     def _center(self, p: _Plant) -> int:
         return p.col * self._g["units_per_tile"] + self._g["units_per_tile"] // 2
+
+    def _start_walk(self, z, *, pole=False):
+        spec = self.rules.zombies[z.kind]
+        if pole:
+            z.speed = z.pole_speed = self._random(spec["pole_speed"], spec["pole_max_speed"])
+            z.gait = 2
+        else:
+            z.speed = (
+                spec["speed"]
+                if z.kind == "flag"
+                else self._random(spec["speed"], spec["max_speed"])
+            )
+            variant = self._random(0, 1)
+            z.gait = (
+                3 if z.kind == "pole_vaulting" else 1 if z.kind == "flag" or variant == 0 else 0
+            )
+        z.gait_phase = z.phase_remainder = 0
+
+    def _contacts(self, z, p, end):
+        left, right = contact_interval(p.col, self._g["units_per_tile"], z.has_pole)
+        return min(end, z.x) * 80 <= right and max(end, z.x) * 80 >= left
+
+    def _plant_targets(self, p):
+        unit = self._g["units_per_tile"]
+        found = []
+        for z in self._zombies.values():
+            if z.row != p.row or z.health <= 0 or z.state == "vaulting":
+                continue
+            left, right, extra = 60, 10000, 0
+            if p.kind == "potato_mine":
+                if z.headless or z.gait == 2:
+                    continue
+                left, right = (40 if z.kind == "pole_vaulting" else 0), 55
+                extra = 30 if z.state == "biting" else 0
+            elif p.kind == "chomper":
+                if z.headless:
+                    continue
+                left, right = 80, 120
+                extra = 60 if z.state == "biting" or p.state == "biting" else 0
+            origin = p.col * unit * 80
+            if (
+                z.x * 80 <= origin + (right + extra) * unit
+                and z.x * 80 + 42 * unit >= origin + (left - extra) * unit
+            ):
+                found.append(z)
+        return sorted(found, key=lambda z: (z.x, z.id))
+
+    def _shot_targets(self, row, start, end):
+        unit = self._g["units_per_tile"]
+        return sorted(
+            (
+                z
+                for z in self._zombies.values()
+                if z.health > 0
+                and z.row == row
+                and z.state != "vaulting"
+                and z.x * 80 <= end * 80 + 40 * unit
+                and z.x * 80 + 42 * unit >= start * 80 - 15 * unit
+            ),
+            key=lambda z: (z.x, z.id),
+        )
 
     def _targets(
         self, row: int, left: int, right: int | None = None, *, headed=False
@@ -369,9 +435,10 @@ class Game:
         unit = self._g["units_per_tile"]
         p.state = "exploding" if p.kind == "cherry_bomb" else "detonating"
         radius = 1 if p.kind == "cherry_bomb" else 0
-        left, right = (p.col - radius) * unit, (p.col + radius + 1) * unit
         for z in self._zombies.values():
-            if abs(z.row - p.row) <= radius and left <= z.x < right:
+            if (radius or z.state != "vaulting") and blast_hits(
+                p.col, p.row, z.x, z.row, unit, radius == 1
+            ):
                 self._damage(z, self.rules.plants[p.kind]["damage"], p.id)
         self._emit("PlantExploded", p.id, row=p.row, col=p.col, radius=radius)
         self._remove_plant(p.id, "detonated")
@@ -384,10 +451,8 @@ class Game:
         self._emit("ZombieSwallowed", z.id, source=p.id)
 
     def _advance_plants(self):
-        unit = self._g["units_per_tile"]
         for p in list(self._plants.values()):
             spec = self.rules.plants[p.kind]
-            center = self._center(p)
             if p.kind == "sunflower":
                 if self._tick >= p.due:
                     self._sun_income(spec["sun_amount"], "sunflower", p.id)
@@ -407,7 +472,7 @@ class Game:
                     )
                 if (
                     launch or (p.kind == "repeater" and p.due - self._tick == spec["burst_ticks"])
-                ) and self._targets(p.row, center):
+                ) and self._plant_targets(p):
                     p.burst_due = self._tick + spec["windup_ticks"]
             elif p.kind == "cherry_bomb" and self._tick >= p.due:
                 self._detonate(p)
@@ -418,13 +483,11 @@ class Game:
                 elif p.state == "rising" and self._tick >= p.due:
                     p.state = "armed"
                     self._emit("MineArmed", p.id)
-                if p.state == "armed" and self._targets(
-                    p.row, p.col * unit, (p.col + 1) * unit - 1, headed=True
-                ):
+                if p.state == "armed" and self._plant_targets(p):
                     self._detonate(p)
             elif p.kind == "chomper":
                 if p.state == "biting" and self._tick >= p.due:
-                    targets = self._targets(p.row, center, center + unit, headed=True)
+                    targets = self._plant_targets(p)
                     if targets and not targets[0].has_pole and targets[0].state != "vaulting":
                         self._swallow(p, targets[0])
                     else:
@@ -439,7 +502,7 @@ class Game:
                 elif p.state == "recovering" and self._tick >= p.due:
                     p.state = "ready"
                 if p.state == "ready":
-                    targets = self._targets(p.row, center, center + unit, headed=True)
+                    targets = self._plant_targets(p)
                     if targets:
                         p.state = "biting"
                         p.due = self._tick + spec["bite_ticks"]
@@ -456,7 +519,7 @@ class Game:
     def _advance_projectiles(self):
         for pid, shot in list(self._projectiles.items()):
             end = shot.x + self._distance(shot, self._g["projectile_speed"])
-            targets = self._targets(shot.row, shot.x, end)
+            targets = self._shot_targets(shot.row, shot.x, end)
             if targets:
                 z = targets[0]
                 self._damage(z, shot.damage, shot.id)
@@ -486,14 +549,19 @@ class Game:
                 if z.health <= 0:
                     continue
             if z.state == "vaulting":
+                elapsed = self._tick - z.vault_start_tick
+                z.x = (
+                    z.vault_start_x
+                    - (z.vault_start_x - z.landing_x) * min(elapsed * 24, 4300) // 4300
+                )
                 if self._tick < z.vault_until:
                     continue
-                z.x = z.landing_x
+                z.x -= 150 * self._g["units_per_tile"] // 80
                 z.state = "walking"
+                self._start_walk(z)
                 self._emit("VaultFinished", z.id)
             slowed = self._tick < z.slow_until
-            speed = z.pole_speed if z.has_pole else z.speed
-            end = z.x - self._distance(z, speed, slowed=slowed)
+            end = z.x - gait_step(z, self._g["units_per_tile"], slowed)
             # Nearest plant crossed while moving left, including the current bite target.
             blocking = sorted(
                 (
@@ -502,27 +570,31 @@ class Game:
                     if p.row == z.row
                     and not z.headless
                     and p.health > 0
-                    and end <= self._center(p) + self._g["contact_offset"] <= z.x
+                    and self._contacts(z, p, end)
                 ),
                 key=lambda p: (-p.col, p.id),
             )
             if not blocking:
+                if z.state == "biting":
+                    self._start_walk(z)
                 self._move_zombie(z, end)
                 z.state = "carrying_pole" if z.has_pole else "walking"
                 z.bite_progress = z.target_id = 0
                 continue
             p = blocking[0]
-            self._move_zombie(z, self._center(p) + self._g["contact_offset"])
+            boundary = contact_interval(p.col, self._g["units_per_tile"], z.has_pole)[1] // 80
+            self._move_zombie(z, min(z.x, boundary))
             if z.health <= 0 or z.headless:
-                continue
-            if p.kind == "potato_mine" and p.state == "armed":
-                self._detonate(p)
                 continue
             if z.has_pole:
                 z.has_pole = False
                 z.state = "vaulting"
-                z.vault_until = self._tick + self._g["vault_ticks"]
-                z.landing_x = z.x - self._g["vault_distance"]
+                z.vault_until = self._tick + 180
+                z.vault_start_tick = self._tick
+                z.vault_start_x = z.x
+                z.landing_x = (
+                    p.col * self._g["units_per_tile"] + 116 * self._g["units_per_tile"] // 80
+                )
                 z.bite_progress = z.target_id = 0
                 self._emit("VaultStarted", z.id, over=p.id)
                 continue
@@ -542,7 +614,17 @@ class Game:
         # Projectiles already moved this tick. Sweep the zombie's remaining motion
         # against them too, so two objects crossing between samples still collide.
         shots = sorted(
-            (p for p in self._projectiles.values() if p.row == z.row and end <= p.x <= z.x),
+            (
+                p
+                for p in self._projectiles.values()
+                if p.row == z.row
+                and z.state != "vaulting"
+                and (end * 80 <= p.x * 80 + 40 * self._g["units_per_tile"])
+                and (
+                    p.x * 80 - 15 * self._g["units_per_tile"]
+                    <= z.x * 80 + 42 * self._g["units_per_tile"]
+                )
+            ),
             key=lambda p: (-p.x, p.id),
         )
         for shot in shots:
@@ -561,7 +643,9 @@ class Game:
                 z.health > 0
                 and not z.headless
                 and z.row == mower.row
-                and z.x <= self._g["mower_trigger_x"]
+                and z.x < mower.x
+                and z.x * 80 + 42 * self._g["units_per_tile"]
+                > mower.x * 80 - 50 * self._g["units_per_tile"]
                 for z in self._zombies.values()
             ):
                 mower.state = "moving"
@@ -569,7 +653,12 @@ class Game:
                 self._emit("MowerActivated", row=mower.row)
                 # Include every zombie that crossed the trigger in this same tick.
                 for z in self._zombies.values():
-                    if z.row == mower.row and z.x <= mower.x:
+                    if (
+                        z.row == mower.row
+                        and z.x < mower.x
+                        and z.x * 80 + 42 * self._g["units_per_tile"]
+                        > mower.x * 80 - 50 * self._g["units_per_tile"]
+                    ):
                         self._damage(z, 0, -mower.row - 1, swallow=True)
             if mower.state == "moving":
                 speed = self._g["mower_speed"]
@@ -584,8 +673,9 @@ class Game:
                     if (
                         z.row == mower.row
                         and z.health > 0
-                        and z.x <= end
-                        and self._previous_x.get(z.id, z.x) >= mower.x
+                        and z.x < end
+                        and self._previous_x.get(z.id, z.x) * 80 + 42 * self._g["units_per_tile"]
+                        > mower.x * 80 - 50 * self._g["units_per_tile"]
                     ):
                         self._damage(z, 0, -mower.row - 1, swallow=True)
                         mower.chomp_ticks = self._g["mower_hit_ticks"]
@@ -832,10 +922,16 @@ class Game:
                             raise ValueError(f"{key} must be boolean")
                     elif type(value) is not int:
                         raise ValueError(f"{key} must be integer")
-                    elif key not in ("x", "landing_x") and value < 0:
+                    elif key not in ("x", "landing_x", "vault_start_x") and value < 0:
                         raise ValueError(f"{key} must be nonnegative")
                 if hasattr(entity, "move_remainder") and not (
-                    0 <= entity.move_remainder < g["tick_rate"] * g["slow_denominator"]
+                    0
+                    <= entity.move_remainder
+                    < (
+                        MOVE_DENOMINATOR
+                        if isinstance(entity, _Zombie)
+                        else g["tick_rate"] * g["slow_denominator"]
+                    )
                 ):
                     raise ValueError("invalid movement remainder")
         for p in self._plants.values():
@@ -847,6 +943,10 @@ class Game:
             if p.state not in allowed:
                 raise ValueError("plant state does not match type")
         for z in self._zombies.values():
+            if not (
+                0 <= z.gait < 4 and 0 <= z.gait_phase < SCALE and 0 <= z.phase_remainder < 4700
+            ):
+                raise ValueError("invalid gait state")
             if z.bite_progress >= g["bite_ticks"] * 2:
                 raise ValueError("invalid bite progress")
             if (

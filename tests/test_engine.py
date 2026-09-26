@@ -177,11 +177,11 @@ def test_simultaneous_hits_do_not_double_count_death(make_game):
     assert result.observation.counts.defeated == 1
 
 
-def test_bomb_fuse_and_half_open_area_boundaries(make_game):
+def test_bomb_fuse_and_circle_rectangle_boundaries(make_game):
     game = make_game(
         spawns=(
             Spawn(1, "basic", 1, x=2000),
-            Spawn(1, "basic", 3, x=4999),
+            Spawn(1, "basic", 3, x=4000),
             Spawn(1, "basic", 2, x=5000),
             Spawn(1, "basic", 0, x=3500),
         ),
@@ -212,7 +212,7 @@ def test_mine_underground_rising_then_armed(make_game):
 
 def test_unarmed_mine_can_be_eaten(make_game):
     game = make_game(
-        spawns=(Spawn(1, "basic", 0, x=1800),), plants=(InitialPlant("potato_mine", 0, 1),)
+        spawns=(Spawn(1, "basic", 0, x=1450),), plants=(InitialPlant("potato_mine", 0, 1),)
     )
     game.step(ticks=300)
     assert not game.observe().plants
@@ -239,24 +239,24 @@ def test_chomper_ignores_armor_and_digests(make_game):
     assert game.step(ticks=70).status == Status.WON
 
 
-def test_slow_uses_two_fifths_movement_and_expires(make_game):
+def test_slow_halves_phase_and_expires(make_game):
     game = make_game(stationary=False, spawns=(Spawn(1, "buckethead", 0, x=7000),))
     game.step()
     z = next(iter(game._zombies.values()))
-    z.slow_until = game.observe().tick + 1000
-    before = z.x
+    phase = z.gait_phase
+    z.slow_until = 1001
     game.step(ticks=100)
-    assert abs((before - z.x) - z.speed * 0.4) < 1
+    chilled = z.gait_phase - phase
     assert game.observe().zombies[0].slow_ticks == 900
     game.step(ticks=900)
-    before = z.x
+    phase = z.gait_phase
     game.step(ticks=100)
-    assert before - z.x == z.speed
+    assert abs((z.gait_phase - phase) % 1_000_000 - 2 * chilled) <= 2
 
 
 def test_chilled_bites_use_age_modulo_eight(make_game):
     game = make_game(
-        spawns=(Spawn(1, "buckethead", 0, x=800),), plants=(InitialPlant("wall_nut", 0, 0),)
+        spawns=(Spawn(1, "buckethead", 0, x=450),), plants=(InitialPlant("wall_nut", 0, 0),)
     )
     game.step()
     z = next(iter(game._zombies.values()))
@@ -293,7 +293,7 @@ def test_removing_vault_target_does_not_change_landing(make_game):
     game.step(Dig(0, 1), ticks=180)
     z = game.observe().zombies[0]
     assert z.state == "walking"
-    assert 796 <= z.x <= 799  # Landing plus one quantized walking tick.
+    assert 571 <= z.x <= 575  # plant origin + (36+80-150)/80 tiles, then gait.
 
 
 def test_mower_catches_simultaneous_crossings_but_later_arrival_loses(make_game):

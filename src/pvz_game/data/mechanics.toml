@@ -1,0 +1,35 @@
+# Numerical ground-track facts only; no original artwork.
+phase_scale = 1000000
+source_tile_pixels = 80
+source_velocity_scale = 1000
+animation_factor = 47
+row_pixels = 100
+body_left_pixels = 36
+body_width_pixels = 42
+body_top_pixels = -30
+body_height_pixels = 115
+plant_inset_pixels = 10
+plant_width_pixels = 60
+contact_overlap_pixels = 20
+attack_offset_pixels = 14
+attack_width_pixels = 20
+pole_attack_offset_pixels = -65
+pole_attack_width_pixels = 70
+cherry_radius_pixels = 115
+mine_radius_pixels = 60
+jump_frames = 43
+jump_fps = 24
+jump_shift_pixels = 150
+
+[[gaits]]
+name = "walk"
+deltas = [14,14,14,15,14,14,13,14,14,14,15,14,8,9,9,8,1,2,1,1,0,0,0,0,24,24,23,24,23,24,24,23,12,12,12,11,13,11,12,12,1,1,1,1,1,1]
+[[gaits]]
+name = "walk2"
+deltas = [13,12,13,13,13,13,12,12,13,12,13,13,13,13,12,13,1,1,0,1,0,1,1,18,17,18,18,18,17,18,18,18,18,17,18,17,19,17,18,1,0,1,2,1,0,1]
+[[gaits]]
+name = "pole_run"
+deltas = [8,8,9,8,8,9,8,8,9,8,8,9,8,8,9,8,8,9,8,8,9,8,8,9,8,8,9,8,8,9,8,8,9,8,8,9]
+[[gaits]]
+name = "pole_walk"
+deltas = [7,8,7,7,19,20,19,19,20,21,20,20,21,20,20,21,20,20,19,20,20,20,20,20,23,24,23,23,19,19,19,19,17,19,19,19,2,3,2,2,0,-1,-1,0]
