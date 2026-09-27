@@ -1,5 +1,30 @@
 # Iteration history
 
+## 1.7.0 — 2026-09-27
+
+- Problem/root cause: early contact clamping conflated occupancy and attacks;
+  a partial correction moved eating zombies and gated damage but not target
+  acquisition/release. Inclusive pea edges and endpoint-only mower checks
+  accepted tangencies or missed crossings. A zero rounded head-loss threshold
+  skipped defeat accounting for custom 1–2 HP bodies.
+- Improvement: walk before cadence-gated acquisition/release; freeze eating;
+  use pre-movement pole checks and mine damage immunity without dropping bite
+  targets. Share geometry/constants, sweep peas and mowers, count lethal bodies
+  once, and decouple source velocity from board resolution on CPU/CUDA.
+- Verification: **427 tests passed in 290.73 seconds**, including every plant
+  and zombie, independent boundary/cadence controls, CUDA observations/events/
+  snapshots/RNG/outcomes, UI/replays and three current winning fixtures.
+  Ruff lint/format and wheel/source builds pass. The unchanged public-state
+  scripted controller wins easy/standard/hard seed 42 at ticks 15193/29362/42309,
+  preserving all five mowers; these are availability checks, not learning.
+- Fixture evidence: replaying the earlier unreleased hard fixture's fixed action
+  sequence under corrected mechanics lost. Current v17 fixtures were regenerated
+  with the unchanged controller; historical v16 and older fixtures are preserved.
+  Winning assertions and known failure controls were not relaxed.
+- Limits: old 1.6.0 recordings require their original engine. Deterministic target
+  ordering, custom waves, xorshift RNG and fixed-point/source truncation remain
+  documented approximations. No formal training was run.
+
 ## 1.4.0 — 2026-09-23
 
 The simulation clock is now 100 Hz, compatibility version 1.1.0. Second-based rules,

@@ -74,3 +74,21 @@ numerical intervals for ordinary walk/walk2 and pole run/walk/jump. Only numeric
 facts are distributed, with independently implemented algorithms. Full relevant
 method bodies were inspected; these are reconstruction sources, not verified
 comparisons against a commercial executable. See the mathematics audit for limits.
+# 1.7.0 collision audit
+
+The 2026-09-27 audit re-read the pinned Patoke PC/GOTY reconstruction revision
+(`c4692036c5e11d227c8fb7c593b734dac96da028`), especially zombie attack-rectangle
+and pole-vault ordering, `Board.cpp` rectangle/circle intersection, projectile
+positive-overlap checks, mine target eligibility, and mower contact handling.
+These source functions motivate the corrected geometry and ordering; they remain
+an independent reconstruction reference rather than proof of binary equivalence.
+The implementation also uses the existing fixed-point gait mathematics and the
+local CPU/CUDA differential test strategy documented below.
+
+The continuation inspected `ZombieNotWalking`, `UpdateZombiePosition`,
+`CheckIfPreyCaught`, `FindPlantTarget`, `EatPlant`, `DropHead`, and
+`UpdateZombiePolevaulter` in that same revision, plus
+`Projectile::FindCollisionTarget`. These establish cadence-gated acquisition
+and release, stationary eating, pre-movement vault checks, mine damage immunity
+after StartEating, and strictly positive pea overlap. Sweeps and deterministic
+position/entity tie-breaking are local simulation choices, not source guarantees.

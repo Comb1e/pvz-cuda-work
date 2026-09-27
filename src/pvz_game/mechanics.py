@@ -6,6 +6,12 @@ SPEC = bundled("mechanics.toml")
 GAITS = tuple(tuple(g["deltas"]) for g in SPEC["gaits"])
 SCALE = SPEC["phase_scale"]
 MOVE_DENOMINATOR = 100 * 10 * SPEC["source_tile_pixels"] * SCALE
+PIXELS = SPEC["source_tile_pixels"]
+
+
+def bite_immune(kind, state):
+    # EatPlant starts eating before checking these damage immunities.
+    return kind == "cherry_bomb" or (kind == "potato_mine" and state != "arming")
 
 
 def gait_step(z, units, chilled):
@@ -24,13 +30,51 @@ def gait_step(z, units, chilled):
     return distance
 
 
-def contact_interval(col, units, pole):
-    # Cross-multiplied source pixels; public x is the body rectangle's left edge.
+def overlap(left_a, right_a, left_b, right_b):
+    """Return the positive overlap of two half-open source-coordinate intervals."""
+    return max(0, min(right_a, right_b) - max(left_a, left_b))
+
+
+def attack_contact(
+    col, zombie_x, units, pole=False, *, minimum_pixels=SPEC["contact_overlap_pixels"]
+):
+    """Whether a zombie body overlaps a plant's attack rectangle enough to bite."""
+    plant_left = (col * PIXELS + SPEC["plant_inset_pixels"]) * units
+    plant_right = plant_left + SPEC["plant_width_pixels"] * units
     offset = SPEC["pole_attack_offset_pixels" if pole else "attack_offset_pixels"]
     width = SPEC["pole_attack_width_pixels" if pole else "attack_width_pixels"]
-    left = col * units * 80 + (10 + 20 - offset - width) * units
-    right = col * units * 80 + (70 - 20 - offset) * units
-    return left, right
+    attack_left = zombie_x * PIXELS + offset * units
+    return (
+        overlap(plant_left, plant_right, attack_left, attack_left + width * units)
+        >= minimum_pixels * units
+    )
+
+
+def projectile_contact(zombie_x, shot_start, shot_end, units):
+    """Positive rectangle overlap for a swept pea and zombie body.
+
+    Equality is deliberately a miss: a projectile touching one edge has zero
+    area and the PC collision routine rejects that contact.
+    """
+    return swept_projectile_contact(zombie_x, zombie_x, shot_start, shot_end, units)
+
+
+def swept_projectile_contact(zombie_start, zombie_end, shot_start, shot_end, units):
+    """Positive overlap for both swept rectangles."""
+    zombie_left = min(zombie_start, zombie_end) * PIXELS
+    zombie_right = max(zombie_start, zombie_end) * PIXELS + SPEC["body_width_pixels"] * units
+    shot_left = min(shot_start, shot_end) * PIXELS - SPEC["projectile_back_pixels"] * units
+    shot_right = max(shot_start, shot_end) * PIXELS + SPEC["projectile_front_pixels"] * units
+    return overlap(zombie_left, zombie_right, shot_left, shot_right) > 0
+
+
+def mower_contact(zombie_start, zombie_end, mower_x, units):
+    """Positive swept overlap with the 50px mower body interval."""
+    body_left = min(zombie_start, zombie_end) * PIXELS
+    body_right = max(zombie_start, zombie_end) * PIXELS + SPEC["body_width_pixels"] * units
+    mower_left = mower_x * PIXELS - SPEC["mower_width_pixels"] * units
+    mower_right = mower_x * PIXELS
+    return overlap(body_left, body_right, mower_left, mower_right) > 0
 
 
 def blast_hits(col, row, x, zombie_row, units, cherry):

@@ -7,7 +7,7 @@ from pvz_game import ENGINE_VERSION, PACKAGE_VERSION, Game, InitialPlant, LevelS
 
 def test_100hz_physical_units_and_incompatible_old_snapshot():
     rules = Rules()
-    assert PACKAGE_VERSION == "1.6.0" and ENGINE_VERSION == "1.3.0"
+    assert PACKAGE_VERSION == "1.7.0" and ENGINE_VERSION == "1.4.0"
     assert rules.game["tick_rate"] == 100
     assert rules.plants["peashooter"]["interval_ticks"] == 150
     assert rules.plants["potato_mine"]["first_ticks"] == 1500

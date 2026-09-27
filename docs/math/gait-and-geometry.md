@@ -1,4 +1,4 @@
-# Gait and geometry controls for 1.6.0
+# Gait and geometry controls for 1.7.0
 
 This is an independent fixed-point implementation of numerical facts inspected in
 the PC/GOTY reconstruction, not executable equivalence. The references identify
@@ -54,6 +54,16 @@ Plant bodies are [plant_x+10,plant_x+70]. Required overlap is at least 20 pixels
 For a left-moving body edge, first ordinary contact is plant_x+36; first pole
 contact is plant_x+115. Equality qualifies; one unit outside does not.
 
+More generally, for plant interval [10,70] and attack [x+o,x+o+w],
+overlap >=20 iff 30-o-w <= x <=50-o. Ordinary contact therefore covers
+[-4,36] source pixels; pole contact covers [25,115], relative to the plant
+origin. The body can share a tile yet lie outside either attack interval.
+Walking precedes target checks on zombie age modulo 4 (8 chilled). Acquisition,
+damage and release all use that cadence. Biting suspends movement; losing a
+target resumes walking on the tick after release. Pre-vault checks happen
+before movement. Rising/armed mines are eligible targets but immune to bite
+damage, matching the reference's StartEating-before-immunity ordering.
+
 Plant target intervals are [plant_x+60,infinity) for peas, [plant_x,plant_x+55]
 for mines and [plant_x+80,plant_x+120] for chomper. Mine triggering excludes
 headless bodies and both pre-vault/in-vault phases. Post-vault mine range starts
@@ -66,8 +76,9 @@ Cherry centers at (plant_x+40,row_y+40), radius 115, row distance <=1. Mine
 centers at (plant_x+20,row_y+40), radius 60, same row. For rectangle [l,r]×[t,b],
 dx=max(l-cx,0,cx-r), dy=max(t-cy,0,cy-b); hit iff dx²+dy²<=radius². Tangency
 qualifies. Peas have horizontal bounds [shot_x-15,shot_x+40], and cannot hit
-airborne vaulters. Continuous sweeps prevent tunnelling in configurable fast
-test scenarios. Headless autonomous damage has no plant source or reward.
+airborne vaulters. Projectile intersection requires positive area, so exact edge
+tangency misses. Continuous sweeps prevent tunnelling in configurable fast test
+scenarios. Headless autonomous damage has no plant source or reward.
 
 ## Audit limits
 
@@ -75,7 +86,8 @@ Production, recharge, body/armor health, launch cycles, biting and head-loss
 thresholds retain the controls in [PC mechanics](pc-mechanics.md). Corrected
 discrepancies are gait/loop endpoints, slowing, restart sampling, pole geometry,
 target eligibility and circular blasts. Remaining approximations include integer
-RNG, fixed-point timing, visual blending, unsupported entities, source sprite
+RNG, deterministic position/entity target tie-breaking instead of source plant
+iteration order, fixed-point timing, visual blending, unsupported entities, source sprite
 integer truncation and custom level/house/mower positioning. These controls do
 not establish equivalence to an original commercial executable.
 

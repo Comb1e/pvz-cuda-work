@@ -1,4 +1,4 @@
-# Current architecture
+# Current architecture — package 1.7.0 / simulation 1.4.0
 
 Lawn Lab has a Python reference simulator and an optional CUDA batch simulator.
 Human controls and replay playback use the Python API. CUDA training batches use
@@ -225,7 +225,7 @@ presentation context explicitly and decide when an external cutoff applies. Neit
 changes the engine's Running/Won/Lost state machine.
 
 Schema and engine versions are explicit. Package releases can share a simulation compatibility
-identifier when rules and state semantics are unchanged: package 1.6.0 uses engine 1.3.0 and
+identifier when rules and state semantics are unchanged: package 1.7.0 uses engine 1.4.0 and
 snapshot/CUDA schema version 3. There is no migration across incompatible snapshot versions.
 Platform-independent integer rules are used, but cross-platform determinism has not yet
 been experimentally verified; the tested environment is Python 3.12.3 on Windows 11.
@@ -276,9 +276,9 @@ See [the unit and boundary derivation](math/gait-and-geometry.md).
 ```mermaid
 stateDiagram-v2
     [*] --> Walking: spawn / choose gait and speed
-    Walking --> Biting: plant attack overlap
-    Biting --> Walking: target gone / resample
-    Walking --> Vaulting: capable pole / eligible plant
+    Walking --> Biting: age cadence and attack overlap after walking
+    Biting --> Walking: age cadence and target gone / resample
+    Walking --> Vaulting: carrying pole / pre-movement attack overlap
     Vaulting --> Walking: jump completes / post-vault gait and new speed
     Walking --> Headless: health below threshold
     Biting --> Headless: health below threshold
@@ -289,3 +289,5 @@ Head loss affects threat/attack eligibility independently of locomotion: it does
 not invent a new walking speed or reset a vault. The diagram's Headless state
 summarizes this independent damage state. Mower positioning remains customizable;
 its 50-pixel swept rectangle uses strict positive overlap.
+Eating suspends movement even for a decaying headless body. Mine damage immunity
+does not remove its bite-target eligibility; trigger and blast checks are separate.

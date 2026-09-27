@@ -104,11 +104,11 @@ def test_walk_restart_resamples_without_resetting_other_entities(make_game):
         spawns=(Spawn(1, "basic", 0, x=450), Spawn(10000, "basic", 4)),
         plants=(InitialPlant("wall_nut", 0, 0),),
     )
-    game.step()
+    game.step(ticks=4)
     z = next(iter(game._zombies.values()))
     assert z.state == "biting"
     state = game._gameplay_rng
-    game.step(Dig(0, 0))
+    game.step(Dig(0, 0), ticks=4)
     assert z.state == "walking" and game._gameplay_rng != state
     assert 230 <= z.speed <= 320 and z.gait_phase == 0
     snapshot = game.snapshot()

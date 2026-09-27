@@ -1,5 +1,15 @@
 # 100 Hz release verification — 2026-09-23
 
+## 1.7.0 collision audit — 2026-09-27
+
+Package 1.7.0 uses simulation compatibility 1.4.0. **427 tests pass**, including
+independent attack/projectile/blast boundaries; all bite-age residues, chilling,
+headless and pole phases; mine damage immunity; custom velocity scales/low HP;
+mower crossings; and CPU/CUDA snapshots, events, RNG and outcomes. Current v17
+winning fixtures verify on both CPU and CUDA. Lint/format and wheel/source builds
+pass. See [iteration notes](iteration.md) for exact run evidence and fixture
+compatibility. No formal learning run was launched.
+
 Package **1.4.0**, simulation **1.1.0**, pinned rule clock **100 ticks/second**.
 Complete game regression suite: **224 passed in 192.30 s** on the RTX 4070 laptop,
 using the existing research environment. Cache, bytecode, and temporary results

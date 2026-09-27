@@ -11,3 +11,15 @@
 - Record each version's date, previous issues, root causes, improvements, checks, and remaining issues in `docs/iteration.md`.
 - Verify successful cases, known failures, and boundaries together when fixing issues.
 - Check key logic with independent controls, boundary cases, and counterexamples.
+
+## Code structure
+
+- `src/pvz_game/engine.py` owns CPU actions, ordered simulation phases, events,
+  snapshots and outcome accounting; `mechanics.py` owns shared collision geometry
+  and fixed-point gait using `data/mechanics.toml`.
+- `src/pvz_game/cuda/` mirrors supported default-rule simulation and public state
+  in ordered CUDA batches; custom rules remain CPU-only.
+- `src/pvz_game/replay.py`, `action_replay.py`, `rendering.py`, and `ui.py` provide
+  verified native/research replay formats and public-state presentation.
+- `tests/` covers mechanics, independent math, CPU/CUDA differential traces,
+  historical compatibility and current winning replay fixtures.
