@@ -1,5 +1,28 @@
 # Iteration history
 
+## 1.7.0 — 2026-09-27
+
+- Problem: walking zombies were clamped to an overlapping plant before the next
+  bite check, projectile edge tangency counted as a hit, idle mowers missed fast
+  crossings, and lethal custom one/two-HP bodies could remain uncounted. Human
+  recording could also reuse incomplete output files and its action codec was
+  initialized too late.
+- Root cause: collision tests mixed tile occupancy, swept rectangles and attack
+  eligibility; CPU and CUDA used inclusive projectile predicates and endpoint-only
+  mower checks.
+- Improvement: centralized fixed-point attack/projectile/mower geometry, moved
+  bite acquisition after walking, added pre-vault checks and mine bite immunity,
+  corrected lethal accounting and mirrored all supported changes in CUDA. Human
+  recording now validates every output path before opening the native window,
+  fixes codec setup, and enforces one easy-stage attempt. The research viewer's
+  Follow latest action is also available through F for every visible panel.
+- Verification: targeted collision controls cover attack boundaries, projectile
+  tangency, custom lethal bodies, mower crossings and mine phases; CPU mechanics
+  tests pass with the expected post-audit pole behavior. CUDA differential and
+  full replay checks remain required on a CUDA host.
+- Remaining issue: old 1.6.0 recordings require their original engine; no
+  migration is provided.
+
 ## 1.4.0 — 2026-09-23
 
 The simulation clock is now 100 Hz, compatibility version 1.1.0. Second-based rules,

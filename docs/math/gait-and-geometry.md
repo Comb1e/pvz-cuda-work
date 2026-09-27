@@ -1,4 +1,4 @@
-# Gait and geometry controls for 1.6.0
+# Gait and geometry controls for 1.7.0
 
 This is an independent fixed-point implementation of numerical facts inspected in
 the PC/GOTY reconstruction, not executable equivalence. The references identify
@@ -66,8 +66,9 @@ Cherry centers at (plant_x+40,row_y+40), radius 115, row distance <=1. Mine
 centers at (plant_x+20,row_y+40), radius 60, same row. For rectangle [l,r]×[t,b],
 dx=max(l-cx,0,cx-r), dy=max(t-cy,0,cy-b); hit iff dx²+dy²<=radius². Tangency
 qualifies. Peas have horizontal bounds [shot_x-15,shot_x+40], and cannot hit
-airborne vaulters. Continuous sweeps prevent tunnelling in configurable fast
-test scenarios. Headless autonomous damage has no plant source or reward.
+airborne vaulters. Projectile intersection requires positive area, so exact edge
+tangency misses. Continuous sweeps prevent tunnelling in configurable fast test
+scenarios. Headless autonomous damage has no plant source or reward.
 
 ## Audit limits
 

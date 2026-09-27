@@ -86,6 +86,39 @@ struct Sim {
     I right = b.col * G_units_per_tile * 80 + (50 - offset) * G_units_per_tile;
     return lo(end, a.x) * 80 <= right && hi(end, a.x) * 80 >= left;
   }
+  __device__ bool bite_contact(Zombie &a, Plant &b, I x) {
+    if (b.kind == 4 && (b.state == 2 || b.state == 7))
+      return false; // rising/armed mines are immune to ordinary bites
+    return contacts(a, b, x);
+  }
+  __device__ bool mower_contact(I start, I end, I mower) {
+    I left = lo(start, end) * 80;
+    I right = hi(start, end) * 80 + 42 * G_units_per_tile;
+    I mower_left = mower * 80 - 50 * G_units_per_tile;
+    return lo(right, mower * 80) > hi(left, mower_left);
+  }
+  __device__ I bite_target(Zombie &a, I x) {
+    I best = -1;
+    for (I i = 0; i < h->np; i++) {
+      Plant &b = p[i];
+      if (b.row == a.row && b.health > 0 && bite_contact(a, b, x) &&
+          (best < 0 || b.col > p[best].col ||
+           (b.col == p[best].col && b.id < p[best].id)))
+        best = i;
+    }
+    return best;
+  }
+  __device__ I vault_target(Zombie &a, I x) {
+    I best = -1;
+    for (I i = 0; i < h->np; i++) {
+      Plant &b = p[i];
+      if (b.row == a.row && b.health > 0 && contacts(a, b, x) &&
+          (best < 0 || b.col > p[best].col ||
+           (b.col == p[best].col && b.id < p[best].id)))
+        best = i;
+    }
+    return best;
+  }
   __device__ I plant_target(Plant &a) {
     I best = -1;
     for (I i = 0; i < h->nz; i++) {
@@ -114,8 +147,8 @@ struct Sim {
     for (I i = 0; i < h->nz; i++) {
       Zombie &a = z[i];
       if (a.health > 0 && a.row == row && a.state != 2 &&
-          a.x * 80 <= end * 80 + 40 * G_units_per_tile &&
-          a.x * 80 + 42 * G_units_per_tile >= start * 80 - 15 * G_units_per_tile &&
+          a.x * 80 < end * 80 + 40 * G_units_per_tile &&
+          a.x * 80 + 42 * G_units_per_tile > start * 80 - 15 * G_units_per_tile &&
           (best < 0 || a.x < z[best].x || (a.x == z[best].x && a.id < z[best].id))) best = i;
     }
     return best;
@@ -176,7 +209,7 @@ struct Sim {
     }
     I dh = hp - a.health, da = ar - a.armor;
     emit(5, a.id, source, dh, da);
-    if (!a.headless && a.health < ZH[a.kind] / 3) {
+    if (!a.headless && (a.health <= 0 || a.health < ZH[a.kind] / 3)) {
       a.headless = 1;
       a.has_pole = 0;
       a.bite_progress = a.target_id = 0;
@@ -323,7 +356,7 @@ struct Sim {
     while (true) {
       I best = -1;
       for (I j = 0; j < h->nq; j++)
-        if (q[j].row == a.row && a.state != 2 && end * 80 <= q[j].x * 80 + 40 * G_units_per_tile && q[j].x * 80 - 15 * G_units_per_tile <= a.x * 80 + 42 * G_units_per_tile &&
+        if (q[j].row == a.row && a.state != 2 && end * 80 < q[j].x * 80 + 40 * G_units_per_tile && q[j].x * 80 - 15 * G_units_per_tile < a.x * 80 + 42 * G_units_per_tile &&
             (best < 0 || q[j].x > q[best].x ||
              (q[j].x == q[best].x && q[j].id < q[best].id)))
           best = j;
@@ -363,38 +396,38 @@ struct Sim {
         start_walk(a, false);
         emit(12, a.id);
       }
+      // A pole carrier checks its attack rectangle before taking this tick's
+      // walking step.  A target removed during flight does not cancel the jump.
+      if (a.has_pole) {
+        I pre = vault_target(a, a.x);
+        if (pre >= 0) {
+          Plant &b = p[pre];
+          a.has_pole = 0;
+          a.state = 2;
+          a.vault_until = h->tick + 180;
+          a.vault_start_tick = h->tick;
+          a.vault_start_x = a.x;
+          a.landing_x = b.col * G_units_per_tile + 116 * G_units_per_tile / 80;
+          a.bite_progress = a.target_id = 0;
+          emit(13, a.id, b.id);
+          continue;
+        }
+      }
       bool slow = h->tick < a.slow_until;
       I end = a.x - gait_step(a, slow);
-      I best = -1;
-      for (I j = 0; j < h->np; j++)
-        if (!a.headless && p[j].row == a.row && p[j].health > 0 &&
-            contacts(a, p[j], end) &&
-            (best < 0 || p[j].col > p[best].col ||
-             (p[j].col == p[best].col && p[j].id < p[best].id)))
-          best = j;
+      // Finish walking before acquiring a bite target.  Do not clamp the body
+      // to the plant boundary; the next cadence check may release it again.
+      move_z(i, end);
+      if (a.health <= 0 || a.headless)
+        continue;
+      I best = bite_target(a, a.x);
       if (best < 0) {
         if (a.state == 3) start_walk(a, false);
-        move_z(i, end);
         a.state = a.has_pole ? 1 : 0;
         a.bite_progress = a.target_id = 0;
         continue;
       }
       Plant &b = p[best];
-      I boundary = b.col * G_units_per_tile + floor_div((50 - (a.has_pole ? -65 : 14)) * G_units_per_tile, 80);
-      move_z(i, lo(a.x, boundary));
-      if (a.health <= 0 || a.headless)
-        continue;
-      if (a.has_pole) {
-        a.has_pole = 0;
-        a.state = 2;
-        a.vault_until = h->tick + 180;
-        a.vault_start_tick = h->tick;
-        a.vault_start_x = a.x;
-        a.landing_x = b.col * G_units_per_tile + 116 * G_units_per_tile / 80;
-        a.bite_progress = a.target_id = 0;
-        emit(13, a.id, b.id);
-        continue;
-      }
       if (a.target_id != b.id) {
         a.bite_progress = 0;
         a.target_id = b.id;
@@ -416,7 +449,7 @@ struct Sim {
       double kills = f[1];
       if (a.state == 0) {
         for (I i = 0; i < h->nz; i++)
-          if (z[i].health > 0 && !z[i].headless && z[i].row == r && z[i].x < a.x && z[i].x * 80 + 42 * G_units_per_tile > a.x * 80 - 50 * G_units_per_tile) {
+          if (z[i].health > 0 && !z[i].headless && z[i].row == r && mower_contact(z[i].previous_x, z[i].x, a.x)) {
             activated = true;
             break;
           }
@@ -427,7 +460,7 @@ struct Sim {
           f[5]++;
           f[6] += h->sun;
           for (I i = 0; i < h->nz; i++)
-            if (z[i].row == r && z[i].x < a.x && z[i].x * 80 + 42 * G_units_per_tile > a.x * 80 - 50 * G_units_per_tile)
+            if (z[i].row == r && mower_contact(z[i].previous_x, z[i].x, a.x))
               damage(i, 0, -r - 1, true);
         }
       }

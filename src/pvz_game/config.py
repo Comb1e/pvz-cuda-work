@@ -108,7 +108,11 @@ class Rules:
                     if key.endswith("_seconds"):
                         fields[key.replace("_seconds", "_ticks")] = scaled(value, rate, key, 1)
                     elif key.endswith("speed"):
-                        fields[key] = scaled(value, units, key)
+                        # Zombie velocities live in source-space thousandths.
+                        # Gait integration converts them to the board's fixed
+                        # point units, so changing units_per_tile cannot change
+                        # a zombie's physical speed.
+                        fields[key] = scaled(value, 1000 if group == "zombies" else units, key)
                     else:
                         fields[key] = integer(value, key, 1 if key == "health" else 0)
                 parsed[kind] = MappingProxyType(fields)

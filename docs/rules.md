@@ -1,4 +1,4 @@
-# Daytime rules — daytime-1.2
+# Daytime rules — daytime-1.4
 
 The game runs at 100 Hz on a five-row, nine-column lawn with automatic sun
 collection. Supported PC mechanics, all production/combat values and explicit
@@ -30,6 +30,16 @@ cancels its pending shot. Fired projectiles remain independent of their plant.
 Each lane's mower starts at x=0 and can activate once. It sweeps right and is
 spent beyond x=9.5. Headless bodies do not activate idle mowers. Zombies behind
 a mower can still threaten the house at x=-0.5 if they retain their heads.
+
+Collision uses source-pixel rectangles converted to fixed-point units. Planting
+legality remains tile occupancy, while zombie interaction uses the attack
+rectangle: ordinary contact needs at least 20 pixels of overlap. Walking is
+resolved before the four-tick bite cadence (eight ticks while chilled), so a body
+that has passed an attack interval keeps walking. Projectile rectangles require
+positive overlap; exact edge tangency misses. Underground mines can be bitten;
+rising and armed mines are immune to ordinary bites and retain their trigger and
+blast rules. Idle mowers use the swept zombie interval, catching a body that
+crosses their contact range between samples.
 
 Effects resolve as action, clock/cooldowns, spawn/sky income, plant behavior,
 projectiles, first body removal, zombie movement/decay/bites, mowers, final

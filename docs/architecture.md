@@ -1,4 +1,4 @@
-# Current architecture
+# Current architecture — package 1.7.0 / simulation 1.4.0
 
 Lawn Lab has a Python reference simulator and an optional CUDA batch simulator.
 Human controls and replay playback use the Python API. CUDA training batches use

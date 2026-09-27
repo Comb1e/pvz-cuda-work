@@ -8,7 +8,7 @@ Eight plants, five zombies, three scenarios, automatic sun collection, exact rem
 zombie counts, snapshots, and verified action replays are included. Training algorithms,
 rewards, tensor observations, and learning-framework wrappers belong to your external project.
 
-Version 1.6.0 runs at 100 Hz (simulation compatibility 1.3.0) and includes an optional CUDA batch simulator ([API and setup](docs/cuda.md)).
+Version 1.7.0 runs at 100 Hz (simulation compatibility 1.4.0) and includes an optional CUDA batch simulator ([API and setup](docs/cuda.md)).
 The renderer shows zombie progress as defeated/total, such as `2/15`, across gameplay and
 demos. Compact recordings support live viewing and a seekable timeline with 0.5×–8× speeds.
 
@@ -32,7 +32,7 @@ A source launcher can reuse another environment without reinstalling its game:
 # Add -VerifyOnly to check hashes without opening a window.
 ```
 
-This release reads simulation 1.3.0 recordings only. Previous snapshots and replays
+This release reads simulation 1.4.0 recordings only. Previous snapshots and replays
 have incompatible simulation versions and require their original engine; no conversion
 or legacy simulator is included. Research training installs a verified Git archive of
 this repository into its existing environment.
@@ -166,8 +166,8 @@ observations and simulation hashes. The underlying game status remains `running`
 external controller stops it. See [the metadata and rendering API](docs/api.md) and
 [the offscreen example](examples/offscreen_replay.py) for Surface and RGB24 output.
 
-`PACKAGE_VERSION` is `1.3.0`; the simulation compatibility identifier `ENGINE_VERSION`
-remains `1.0.0`. Source-pinned consumers still need the new commit and file manifest.
+`PACKAGE_VERSION` is `1.7.0`; the simulation compatibility identifier `ENGINE_VERSION`
+is `1.4.0`. Source-pinned consumers still need the new commit and file manifest.
 After committing source changes, `python tools/export_engine_pin.py` writes
 `the consumer project's engine-lock.json` for adoption alongside the new package installation.
 
