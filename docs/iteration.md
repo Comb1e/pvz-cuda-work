@@ -2,26 +2,28 @@
 
 ## 1.7.0 — 2026-09-27
 
-- Problem: walking zombies were clamped to an overlapping plant before the next
-  bite check, projectile edge tangency counted as a hit, idle mowers missed fast
-  crossings, and lethal custom one/two-HP bodies could remain uncounted. Human
-  recording could also reuse incomplete output files and its action codec was
-  initialized too late.
-- Root cause: collision tests mixed tile occupancy, swept rectangles and attack
-  eligibility; CPU and CUDA used inclusive projectile predicates and endpoint-only
-  mower checks.
-- Improvement: centralized fixed-point attack/projectile/mower geometry, moved
-  bite acquisition after walking, added pre-vault checks and mine bite immunity,
-  corrected lethal accounting and mirrored all supported changes in CUDA. Human
-  recording now validates every output path before opening the native window,
-  fixes codec setup, and enforces one easy-stage attempt. The research viewer's
-  Follow latest action is also available through F for every visible panel.
-- Verification: targeted collision controls cover attack boundaries, projectile
-  tangency, custom lethal bodies, mower crossings and mine phases; CPU mechanics
-  tests pass with the expected post-audit pole behavior. CUDA differential and
-  full replay checks remain required on a CUDA host.
-- Remaining issue: old 1.6.0 recordings require their original engine; no
-  migration is provided.
+- Problem/root cause: early contact clamping conflated occupancy and attacks;
+  a partial correction moved eating zombies and gated damage but not target
+  acquisition/release. Inclusive pea edges and endpoint-only mower checks
+  accepted tangencies or missed crossings. A zero rounded head-loss threshold
+  skipped defeat accounting for custom 1–2 HP bodies.
+- Improvement: walk before cadence-gated acquisition/release; freeze eating;
+  use pre-movement pole checks and mine damage immunity without dropping bite
+  targets. Share geometry/constants, sweep peas and mowers, count lethal bodies
+  once, and decouple source velocity from board resolution on CPU/CUDA.
+- Verification: **427 tests passed in 290.73 seconds**, including every plant
+  and zombie, independent boundary/cadence controls, CUDA observations/events/
+  snapshots/RNG/outcomes, UI/replays and three current winning fixtures.
+  Ruff lint/format and wheel/source builds pass. The unchanged public-state
+  scripted controller wins easy/standard/hard seed 42 at ticks 15193/29362/42309,
+  preserving all five mowers; these are availability checks, not learning.
+- Fixture evidence: replaying the earlier unreleased hard fixture's fixed action
+  sequence under corrected mechanics lost. Current v17 fixtures were regenerated
+  with the unchanged controller; historical v16 and older fixtures are preserved.
+  Winning assertions and known failure controls were not relaxed.
+- Limits: old 1.6.0 recordings require their original engine. Deterministic target
+  ordering, custom waves, xorshift RNG and fixed-point/source truncation remain
+  documented approximations. No formal training was run.
 
 ## 1.4.0 — 2026-09-23
 

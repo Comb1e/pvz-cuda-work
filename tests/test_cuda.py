@@ -101,6 +101,86 @@ def test_mixed_instant_actions_dig_rejections_and_resets(cuda):
     assert batch.state_hash(1) == fresh.state_hash()
 
 
+@pytest.mark.parametrize("chilled", [False, True])
+@pytest.mark.parametrize("residue", range(8))
+def test_collision_cadence_mine_immunity_and_passed_target_parity(cuda, chilled, residue):
+    from pvz_game import Dig
+
+    level = LevelSpec(
+        "cadence",
+        tuple(Spawn(1, "basic", row, x=3300) for row in range(5)),
+        plants=tuple(
+            InitialPlant("potato_mine" if row in (2, 3) else "wall_nut", row, 3) for row in range(5)
+        ),
+    )
+    game = Game()
+    game.reset(level, 42)
+    game.step()
+    raw = game.snapshot()
+    for z in raw["zombies"]:
+        z.update(age=residue, slow_until=1000 if chilled else 0)
+        if z["row"] == 1:
+            z["x"] = 2949
+        if z["row"] == 4:
+            z.update(headless=True, health=80)
+    raw["defeated"] = 1
+    raw["plants"][2].update(state="rising", due=10000)
+    game.restore(raw)
+    batch = cuda(1, zombie_capacity=5, diagnostic=True, max_step_ticks=1)
+    batch.restore([raw])
+    for _ in range(8):
+        compare(batch, [game], [Wait()])
+    compare(batch, [game], [Dig(0, 3)], per_tick=True)
+    for _ in range(8):
+        compare(batch, [game], [Wait()])
+
+
+def test_pole_approach_flight_removal_and_new_plant_parity(cuda):
+    from pvz_game import Dig
+
+    level = LevelSpec(
+        "flight",
+        (Spawn(1, "pole_vaulting", 0, x=4438),),
+        initial_sun=9990,
+        plants=(InitialPlant("wall_nut", 0, 3),),
+    )
+    game = Game()
+    game.reset(level, 42)
+    batch = cuda(1, zombie_capacity=1, diagnostic=True, max_step_ticks=1)
+    batch.reset([level], [42])
+    for action in [Wait(), Wait(), Dig(0, 3), Place("sunflower", 0, 2)]:
+        compare(batch, [game], [action])
+    for _ in range(184):
+        compare(batch, [game], [Wait()])
+
+
+@pytest.mark.parametrize("delta,hit", [(-1, False), (0, False), (1, True)])
+def test_projectile_exact_tangency_parity(cuda, delta, hit):
+    from pvz_game import Rules
+    from pvz_game.cuda.backend import projectile_bound
+    from pvz_game.engine import _Projectile
+
+    game = Game()
+    game.reset(LevelSpec("tangent", (Spawn(1, "basic", 0, x=1000),)), 42)
+    game.step()
+    z = next(iter(game._zombies.values()))
+    z.x, z.state = 1000, "biting"
+    for row in (0, 1):
+        shot = _Projectile(game._id(), row, 459 + delta, 20, False)
+        game._projectiles[shot.id] = shot
+    batch = cuda(
+        1,
+        zombie_capacity=1,
+        projectile_capacity=projectile_bound(Rules()) + 2,
+        diagnostic=True,
+        max_step_ticks=1,
+    )
+    batch.restore([game.snapshot()])
+    compare(batch, [game], [Wait()])
+    assert z.health == 270 - 20 * hit
+    assert len(game._projectiles) == 2 - hit
+
+
 def test_seeded_legal_and_invalid_traces(cuda):
     batch = cuda(1, zombie_capacity=200, diagnostic=True, max_step_ticks=1)
     game, rng = Game(), random.Random(7)

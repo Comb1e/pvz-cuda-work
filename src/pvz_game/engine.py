@@ -10,14 +10,14 @@ from .config import PLANT_TYPES, LevelSpec, Rules, WaveSpec, canonical_hash, int
 from .mechanics import (
     MOVE_DENOMINATOR,
     SCALE,
+    SPEC,
     attack_contact,
+    bite_immune,
     blast_hits,
-    contact_interval,
+    gait_step,
     mower_contact,
     projectile_contact,
     swept_projectile_contact,
-    swept_attack_contact,
-    gait_step,
 )
 from .randomness import initial_state, next_u32
 from .types import (
@@ -337,11 +337,6 @@ class Game:
             )
         z.gait_phase = z.phase_remainder = 0
 
-    def _contacts(self, z, p, end):
-        return swept_attack_contact(
-            p.col, z.x, end, self._g["units_per_tile"], z.has_pole
-        )
-
     def _contact_at(self, z, p, x=None):
         return attack_contact(
             p.col,
@@ -356,12 +351,7 @@ class Game:
             (
                 p
                 for p in self._plants.values()
-                if p.row == z.row
-                and p.health > 0
-                and self._contact_at(z, p, x)
-                # Mines can be eaten only while underground. Rising and armed
-                # mines use their own trigger/detonation eligibility instead.
-                and not (p.kind == "potato_mine" and p.state in ("rising", "armed"))
+                if p.row == z.row and p.health > 0 and self._contact_at(z, p, x)
             ),
             key=lambda p: (-p.col, p.id),
         )
@@ -616,13 +606,17 @@ class Game:
                     self._start_vault(z, pre_vault[0])
                     continue
             slowed = self._tick < z.slow_until
-            end = z.x - gait_step(z, self._g["units_per_tile"], slowed)
-            # Walking is completed before bite acquisition.  In particular, do
-            # not clamp x to the attack edge: a body that has already passed the
-            # interval continues walking until a later cadence check acquires a
-            # valid target.
-            self._move_zombie(z, end)
-            if z.health <= 0 or z.headless:
+            # Eating suspends locomotion, including for a decaying headless
+            # body. Target acquisition AND release occur only on bite cadence.
+            if z.state != "biting":
+                end = z.x - gait_step(z, self._g["units_per_tile"], slowed)
+                self._move_zombie(z, end)
+            if (
+                z.health <= 0
+                or z.headless
+                or z.has_pole
+                or z.age % (self._g["bite_ticks"] * (2 if slowed else 1))
+            ):
                 continue
             targets = self._bite_targets(z)
             if not targets:
@@ -636,10 +630,7 @@ class Game:
                 z.bite_progress = 0
                 z.target_id = p.id
             z.state = "biting"
-            if (
-                p.kind != "cherry_bomb"
-                and z.age % (self._g["bite_ticks"] * (2 if slowed else 1)) == 0
-            ):
+            if not bite_immune(p.kind, p.state):
                 damage = min(p.health, self._g["bite_damage"])
                 p.health -= damage
                 self._emit("PlantDamaged", p.id, source=z.id, damage=damage)
@@ -647,13 +638,14 @@ class Game:
     def _start_vault(self, z, p):
         z.has_pole = False
         z.state = "vaulting"
-        z.vault_until = self._tick + 180
+        z.vault_until = (
+            self._tick
+            + (SPEC["jump_frames"] * self._g["tick_rate"] + SPEC["jump_fps"] - 1)
+            // SPEC["jump_fps"]
+        )
         z.vault_start_tick = self._tick
         z.vault_start_x = z.x
-        z.landing_x = (
-            p.col * self._g["units_per_tile"]
-            + 116 * self._g["units_per_tile"] // 80
-        )
+        z.landing_x = p.col * self._g["units_per_tile"] + 116 * self._g["units_per_tile"] // 80
         z.bite_progress = z.target_id = 0
         self._emit("VaultStarted", z.id, over=p.id)
 
@@ -666,9 +658,7 @@ class Game:
                 for p in self._projectiles.values()
                 if p.row == z.row
                 and z.state != "vaulting"
-                and swept_projectile_contact(
-                    z.x, end, p.x, p.x, self._g["units_per_tile"]
-                )
+                and swept_projectile_contact(z.x, end, p.x, p.x, self._g["units_per_tile"])
             ),
             key=lambda p: (-p.x, p.id),
         )
@@ -701,14 +691,11 @@ class Game:
                 self._emit("MowerActivated", row=mower.row)
                 # Include every zombie that crossed the trigger in this same tick.
                 for z in self._zombies.values():
-                    if (
-                        z.row == mower.row
-                        and mower_contact(
-                            self._previous_x.get(z.id, z.x),
-                            z.x,
-                            mower.x,
-                            self._g["units_per_tile"],
-                        )
+                    if z.row == mower.row and mower_contact(
+                        self._previous_x.get(z.id, z.x),
+                        z.x,
+                        mower.x,
+                        self._g["units_per_tile"],
                     ):
                         self._damage(z, 0, -mower.row - 1, swallow=True)
             if mower.state == "moving":

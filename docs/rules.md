@@ -20,9 +20,10 @@ Recharge completes one tick after its counter limit. Nut/mine initially use
 2,000 and cherry 3,500; fast cards begin ready. Each tile holds one plant.
 Digging refunds nothing and does not clear recharge. The sun cap is 9,990.
 
-Explosion columns use half-open bounds. A bomb at column 3 affects [2,5)
-tiles in its own lane and adjacent lanes. A mine affects its own lane/tile.
-Chomper targets from its center through one tile ahead, including the endpoint.
+Explosions test a source-pixel circle against zombie body rectangles, including
+tangency. Cherry radius is 115 pixels in its own and adjacent lanes; mine radius
+is 60 pixels in its own lane. Chomper uses its configured forward attack interval
+with the biting tolerance described in [collision mathematics](math/gait-and-geometry.md).
 It ignores headless bodies and misses a pole carrier or vaulting zombie.
 Scheduled shooter windups survive loss of a target, but removing the shooter
 cancels its pending shot. Fired projectiles remain independent of their plant.
@@ -37,14 +38,15 @@ rectangle: ordinary contact needs at least 20 pixels of overlap. Walking is
 resolved before the four-tick bite cadence (eight ticks while chilled), so a body
 that has passed an attack interval keeps walking. Projectile rectangles require
 positive overlap; exact edge tangency misses. Underground mines can be bitten;
-rising and armed mines are immune to ordinary bites and retain their trigger and
+rising and armed mines remain bite targets but take no bite damage. They retain their trigger and
 blast rules. Idle mowers use the swept zombie interval, catching a body that
 crosses their contact range between samples.
 
 Effects resolve as action, clock/cooldowns, spawn/sky income, plant behavior,
 projectiles, first body removal, zombie movement/decay/bites, mowers, final
 cleanup, outcome. Sweeps prevent objects crossing between samples from missing
-collisions. Stable position/entity order resolves combat ties. A neutralized
+collisions. Stable position/entity order resolves combat ties (an intentional
+approximation of the reference's plant iteration order). A neutralized
 zombie cannot bite or breach; a visible body may remain after victory.
 
 Levels keep their custom schedules: preparation 30 seconds, waves normally

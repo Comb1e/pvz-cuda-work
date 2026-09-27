@@ -276,9 +276,9 @@ See [the unit and boundary derivation](math/gait-and-geometry.md).
 ```mermaid
 stateDiagram-v2
     [*] --> Walking: spawn / choose gait and speed
-    Walking --> Biting: plant attack overlap
-    Biting --> Walking: target gone / resample
-    Walking --> Vaulting: capable pole / eligible plant
+    Walking --> Biting: age cadence and attack overlap after walking
+    Biting --> Walking: age cadence and target gone / resample
+    Walking --> Vaulting: carrying pole / pre-movement attack overlap
     Vaulting --> Walking: jump completes / post-vault gait and new speed
     Walking --> Headless: health below threshold
     Biting --> Headless: health below threshold
@@ -289,3 +289,5 @@ Head loss affects threat/attack eligibility independently of locomotion: it does
 not invent a new walking speed or reset a vault. The diagram's Headless state
 summarizes this independent damage state. Mower positioning remains customizable;
 its 50-pixel swept rectangle uses strict positive overlap.
+Eating suspends movement even for a decaying headless body. Mine damage immunity
+does not remove its bite-target eligibility; trigger and blast checks are separate.

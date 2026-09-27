@@ -73,6 +73,7 @@ class Rules:
         if g["units_per_tile"] % 2:
             raise ValueError("units_per_tile must be even")
         rate, units = g["tick_rate"], g["units_per_tile"]
+        velocity_scale = bundled("mechanics.toml")["source_velocity_scale"]
         game = {}
         for key, value in g.items():
             if key.endswith("_seconds"):
@@ -112,7 +113,9 @@ class Rules:
                         # Gait integration converts them to the board's fixed
                         # point units, so changing units_per_tile cannot change
                         # a zombie's physical speed.
-                        fields[key] = scaled(value, 1000 if group == "zombies" else units, key)
+                        fields[key] = scaled(
+                            value, velocity_scale if group == "zombies" else units, key
+                        )
                     else:
                         fields[key] = integer(value, key, 1 if key == "health" else 0)
                 parsed[kind] = MappingProxyType(fields)

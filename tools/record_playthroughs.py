@@ -131,7 +131,10 @@ def record(level, seed, destination):
     game.reset(level, seed)
     recorder = Recorder(game, hash_interval=50)
     started = perf_counter()
-    while game.observe().status == Status.RUNNING and game.observe().tick < 1200 * game.rules.game["tick_rate"]:
+    while (
+        game.observe().status == Status.RUNNING
+        and game.observe().tick < 1200 * game.rules.game["tick_rate"]
+    ):
         recorder.step(choose_action(game), ticks=10)
     obs = game.observe()
     result = {

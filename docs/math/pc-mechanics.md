@@ -14,9 +14,9 @@ to a learning agent's inputs. All ranges include both endpoints.
 | Chomper | Hit after 70 ticks; remainder of 105-tick bite animation; 4,000-tick digestion; 234-tick recovery; misses a capable pole carrier or vaulter |
 | Cards | Initial nut/mine delay 2,001 ticks; cherry 3,501; later recharge is configured 750/3,000/5,000 plus one tick |
 | Body/armor | Ordinary body 270, pole body 500; cone armor 370, bucket armor 1,100 |
-| Head loss | Body health strictly below integer(maximum/3); counts as neutralized once |
+| Head loss | Body health strictly below integer(maximum/3), or any lethal hit; counts as neutralized once even for custom 1–2 HP bodies |
 | Autonomous decay | Each headless body's tick has probability 1/5 of losing 1 HP, or 3 HP for body maximum at least 500 |
-| Bites | Four HP every fourth zombie-age tick, or every eighth while chilled |
+| Bites | Acquire/release target and apply four HP on every fourth zombie-age tick, or eighth while chilled; eating freezes locomotion |
 | Chilling | Gait animation rate 1/2, duration 1,000 ticks |
 
 The card's extra tick follows the source's strict `counter > refreshTime`
