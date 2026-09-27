@@ -1,5 +1,14 @@
 # 100 Hz release verification — 2026-09-23
 
+## 1.7.0 collision audit — 2026-09-27
+
+Package 1.7.0 uses simulation compatibility 1.4.0. The independent CPU audit
+controls pass for positive 20-pixel attack overlap, one-unit boundary misses,
+projectile tangency, mine bite phases, custom one/two-HP lethal accounting and
+idle-mower crossings. The CUDA kernel compiled and its available differential
+cases passed; old 1.6.0 fixture snapshots intentionally require their original
+engine. No formal learning run was launched.
+
 Package **1.4.0**, simulation **1.1.0**, pinned rule clock **100 ticks/second**.
 Complete game regression suite: **224 passed in 192.30 s** on the RTX 4070 laptop,
 using the existing research environment. Cache, bytecode, and temporary results

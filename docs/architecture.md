@@ -225,7 +225,7 @@ presentation context explicitly and decide when an external cutoff applies. Neit
 changes the engine's Running/Won/Lost state machine.
 
 Schema and engine versions are explicit. Package releases can share a simulation compatibility
-identifier when rules and state semantics are unchanged: package 1.6.0 uses engine 1.3.0 and
+identifier when rules and state semantics are unchanged: package 1.7.0 uses engine 1.4.0 and
 snapshot/CUDA schema version 3. There is no migration across incompatible snapshot versions.
 Platform-independent integer rules are used, but cross-platform determinism has not yet
 been experimentally verified; the tested environment is Python 3.12.3 on Windows 11.

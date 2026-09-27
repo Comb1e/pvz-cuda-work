@@ -277,7 +277,9 @@ def test_pole_vaults_once_and_then_bites(make_game):
     result = game.step(ticks=1500)
     assert sum(e.kind == "VaultStarted" for e in result.events) == 1
     assert not result.observation.zombies[0].has_pole
-    assert result.observation.zombies[0].state == "biting"
+    # The post-vault body has already passed the next attack interval and keeps
+    # walking until a later bite-age check reacquires a target.
+    assert result.observation.zombies[0].state == "walking"
     assert next(p for p in result.observation.plants if p.col == 3).health == 4000
     assert next(p for p in result.observation.plants if p.col == 1).health < 4000
 

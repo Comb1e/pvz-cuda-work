@@ -145,7 +145,7 @@ def test_archived_success_and_failure_replay_hashes(cuda, level):
     from pvz_game.replay import decode_action
 
     payload = json.loads(
-        (Path(__file__).parent / "fixtures" / "v16" / f"{level}-seed42.json").read_text()
+        (Path(__file__).parent / "fixtures" / "v17" / f"{level}-seed42.json").read_text()
     )
     batch = cuda(
         1,

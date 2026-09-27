@@ -119,7 +119,7 @@ def test_chunking_does_not_change_simulation(actions):
 
 @pytest.mark.parametrize("name", ["easy", "standard", "hard"])
 def test_shipped_winning_playthrough(name):
-    path = Path(__file__).parent / "fixtures" / "v16" / f"{name}-seed42.json"
+    path = Path(__file__).parent / "fixtures" / "v17" / f"{name}-seed42.json"
     assert path.exists(), f"missing acceptance fixture: {path}"
     final = verify_replay(path)
     assert final.observe().status == Status.WON
